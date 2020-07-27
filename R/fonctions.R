@@ -1,3 +1,49 @@
+#' Paramétrages administrateur
+#'
+#'
+#' @param commune nom de la commune
+#' @param parcelle_ini nom de la parcelle à afficher à l'ouverture de la carte (ex: Cheny_00A_0201)
+#' @param mail adresse mail de l'administrateur
+#' @param host hôte smtp du mail de l'administrateur
+#' @param username_smtp compte smtp de l'administrateur
+#' @param password_smtp mot de passe compte mail administrateur 
+#' @param port_smtp port smtp
+#' @param adresse adresse http du site de l'application
+#' @param administrateur nom de l'administrateur
+#' @param titre_administrateur titre de l'administrateur (ex: 'propriétaire forestier...')
+#'
+#' @return rien: met à jour le fichier admin.csv
+#' @export
+#'
+
+admin <- function(commune = "",
+                  parcelle_ini = "",
+                  mail = "",
+                  host = "",
+                  username_smtp = "",
+                  password_smtp = "",
+                  port_smtp = "",
+                  adresse = "",
+                  administrateur = "",
+                  titre_administrateur = ""){
+  path <- get_path()
+  
+  a <- read.csv(file.path(path,"admin.csv"),stringsAsFactors = F)
+  message("paramètres actuels")
+  print(a)
+  
+  ar <- as.list(environment())[-1]
+  
+  for(i in names(ar)){
+    if(ar[[i]] != ""){
+      a[[i]] <- ar[[i]]
+    }
+  }
+  
+  write.csv(a,file.path(path,"admin.csv"),row.names = FALSE)
+  
+}
+
 
 #' Intègre un input à l'objet reactif r
 #'
@@ -28,9 +74,9 @@ r_input <- function(id,r,input,output,session) {
 #' import RSQLite
 #' import DBI
 #'
-
 read_proprietaire <- function(){
-  db <- dbConnect(RSQLite::SQLite(), "inst/db.sqlite")
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
   p <- dbReadTable(db,'proprietaire')
   
   p <- p[,!colnames(p) %in% c("couleur_proprietaire","mail","valide","psw")]
@@ -53,7 +99,8 @@ read_proprietaire <- function(){
 #' import DBI
 #'
 read_interet <- function(){
-  db <- dbConnect(RSQLite::SQLite(), "inst/db.sqlite")
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
   p <- dbReadTable(db,'interet')
   dbDisconnect(db)
   return(p)
@@ -62,6 +109,7 @@ read_interet <- function(){
 
 #' enregistre base de donnée proprietaire
 #'
+#' @param pr table
 #' @return rien
 #' @export
 #' 
@@ -69,7 +117,8 @@ read_interet <- function(){
 #' import DBI
 #'
 write_proprietaire <- function(pr){
-  db <- dbConnect(RSQLite::SQLite(), "inst/db.sqlite")
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
   dbWriteTable(db,'proprietaire',pr,overwrite = TRUE,
                field.types=c(parcelle="character",parcelle_groupe="character",
                              proprietaire="character",echangeable="logical",a_vendre="logical",
@@ -79,6 +128,7 @@ write_proprietaire <- function(pr){
 
 #' enregistre base de donnée interet
 #'
+#' @param pr table
 #' @return data frame
 #' @export
 #' 
@@ -86,7 +136,8 @@ write_proprietaire <- function(pr){
 #' import DBI
 #'
 write_interet <- function(pr){
-  db <- dbConnect(RSQLite::SQLite(), "inst/db.sqlite")
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
   dbWriteTable(db,'interet',pr,overwrite = TRUE)
   dbDisconnect(db)
 }
@@ -101,7 +152,8 @@ write_interet <- function(pr){
 #' import DBI
 #'
 read_identite <- function(){
-  db <- dbConnect(RSQLite::SQLite(), "inst/db.sqlite")
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
   p <- dbReadTable(db,'identite')%>%filter(valide==1)
   dbDisconnect(db)
   return(p)
@@ -151,13 +203,13 @@ update_data <- function(r,input,output,session,ini=FALSE){
         "<div><span style='width:50px;height:20px;color:white;border-radius:3px;border:3px solid red; margin-left:5px;margin-right:5px;'>...</span>parcelle sélectionnée</div>",
         
         "<div><span style='width:50px;height:20px;color:white;border-radius:3px;border:1px solid #000; background-color:yellow; margin-left:5px;margin-right:5px;'>....</span><b>Vos parcelles</b></div>",
-        "<img style='width:15px;height:15px; margin-left:5px;margin-right:5px;' src='/img/echange.png'>proposée à l'échange</img><br>",
-        "<img style='width:15px;height:15px; margin-left:5px;margin-right:5px;' src='img/vend.png'>proposée à la vente</img><br>",
+        "<img style='width:15px;height:15px; margin-left:5px;margin-right:5px;' src='www/echange.png'>proposée à l'échange</img><br>",
+        "<img style='width:15px;height:15px; margin-left:5px;margin-right:5px;' src='www/vend.png'>proposée à la vente</img><br>",
         "<b>Les autres propriétés</b><br>",
-        "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='img/personne.png'>disponible à l'échange</img><br>",
-        "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='img/interesse.png'>... qui vous intéresse</img><br>",
-        "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='img/personne_vente.png'>disponible à la vente</img><br>",
-        "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='img/interesse_achat.png'>... qui vous intéresse</img><br>"
+        "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='www/personne.png'>disponible à l'échange</img><br>",
+        "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='www/interesse.png'>... qui vous intéresse</img><br>",
+        "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='www/personne_vente.png'>disponible à la vente</img><br>",
+        "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='www/interesse_achat.png'>... qui vous intéresse</img><br>"
         
       ),
       position="bottomright"
@@ -169,7 +221,7 @@ update_data <- function(r,input,output,session,ini=FALSE){
                              data=mark$centro,
                              group = "centro",
                              icon = ~icons(
-                               paste0("img/",tolower(mark$ico),".png"),
+                               paste0("www/",tolower(mark$ico),".png"),
                                iconWidth = mark$centro$size,iconHeight = mark$centro$size
                              )
                              # markerOptions(interactive = FALSE,zIndexOffset = 1000)
@@ -206,7 +258,7 @@ update_data <- function(r,input,output,session,ini=FALSE){
                    data=mark$centro,
                    group = "centro",
                    icon = ~icons(
-                     paste0("img/",tolower(mark$ico),".png"),
+                     paste0("www/",tolower(mark$ico),".png"),
                      iconWidth = mark$centro$size,iconHeight = mark$centro$size
                    )
                    # markerOptions(interactive = FALSE,zIndexOffset = 1000)
@@ -216,6 +268,28 @@ update_data <- function(r,input,output,session,ini=FALSE){
   
   r
 }
+
+
+
+#' Zoom sur parcelle sélectionnée
+#'
+#' @param input input
+#' @param output output 
+#' @param session session
+#' @param r r
+#'
+#' @return coordonnées
+#' @export
+#'
+zoom_parcelle <- function(input,output,session,r){
+  parcelle <- paste0(input$select_commune,"_",input$select_section,"_",input$select_parcelle)
+  if(parcelle %in% r$data$parcelle){
+    
+    r$parcelle <- get_parcelle(r,parcelle)
+  }
+  as.numeric(st_bbox(r$data %>% filter(parcelle %in% r$parcelle)))
+}
+
 
 #' Couleurs de remplissage selon propriétaire
 #'
@@ -387,7 +461,7 @@ bilan_proprietaire <- function(data,user){
     prop$parcelle_groupe[is.na(prop$parcelle_groupe)] <- "-"
     
     # parcelles qui l'interessent
-  
+    
     p_user <- read_interet() %>% filter(interet == user) %>% pull(parcelle)
     
     p <- read_interet() %>% filter(parcelle %in% p_user) 
@@ -406,9 +480,9 @@ bilan_proprietaire <- function(data,user){
                      `valeur cédée`=sum(prop$valeur[prop$statut=="à échanger" & prop$intéressé != "personne"])
     )
     tab_bilan <- data.frame(cédé = c(bil_echange[3],bil_echange[4]),
-                              acquis= c(bil_echange[1],bil_echange[2]),
-                     bilan = c(bil_echange[1]-bil_echange[3], 
-                               bil_echange[2]-bil_echange[4])
+                            acquis= c(bil_echange[1],bil_echange[2]),
+                            bilan = c(bil_echange[1]-bil_echange[3], 
+                                      bil_echange[2]-bil_echange[4])
     )
     row.names(tab_bilan) <- c("surface (ha)","valeur (indice)")
     
@@ -449,17 +523,202 @@ get_parcelle <- function(r,pc){
 #' @export
 #'
 init_table_proprio <- function(){
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+  on.exit(dbDisconnect(db))
   
-  p <- try(read_proprietaire())
-  if(class(p) != "try-error"){
-    saveRDS(p,paste0("inst/data/rdata/proprietaire_",Sys.Date(),".rds"))
+  if("proprietaire" %in% dbListTables(db)){
+    saveRDS(p,paste0(file.path(path,"proprietaire_"),Sys.Date(),".rds"))
   }
   
   pr <- data.frame(parcelle="ini",parcelle_groupe=NA,proprietaire="ini",
                    echangeable=FALSE,a_vendre=FALSE,new_proprietaire="personne",coeff_valeur=1,
                    couleur_proprietaire="",stringsAsFactors = FALSE)
-  saveRDS(pr,"inst/data/rdata/proprietaires.rds")
+  
   write_proprietaire(pr)
+}
+
+#' Réinitialisation de la table interet
+#'
+#' @return rien: écrit une sauvegarde de l'ancienne table au format rds, et écrit une nouvelle table vide.
+#' @export
+#'
+init_table_interet <- function(){
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+  on.exit(dbDisconnect(db))
+  
+  if("interet" %in% dbListTables(db)){
+    saveRDS(p,paste0(file.path(path,"interet_"),Sys.Date(),".rds"))
+  }
+  df <- data.frame(parcelle="ini",interet="ini")
+  
+  dbWriteTable(db,'interet',df,overwrite = TRUE)
+  
+}
+
+#' Réinitialisation de la table identite
+#'
+#' @return rien: écrit une sauvegarde de l'ancienne table au format rds, et écrit une nouvelle table vide.
+#' @export
+#'
+init_table_identite <- function(){
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+  on.exit(dbDisconnect(db))
+  
+  if("identite" %in% dbListTables(db)){
+    saveRDS(p,paste0(file.path(path,"identite_"),Sys.Date(),".rds"))
+  }
+  
+  id <- data.frame(proprietaire=c("?"),
+                   psw = c("ERtdfg45ttt67"),
+                   couleur_proprietaire=c("#ffffffff"),
+                   mail = c(""),
+                   valide = c(1)
+  )
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+  dbWriteTable(db,'identite',id,overwrite = TRUE)
+  
+}
+
+#' Création du fichier sf des parcelles
+#'
+#' @param path chemin du dossier
+#'
+#' @return rien : écrit parcelles.rds
+#' @export
+#'
+#' @importFrom stringr str_remove
+#' 
+setup_parcelles <- function(path){
+  p <- st_read(file.path(path,"BDPARCELLE.shp"))
+  
+  ck <- list()
+  for(f in c("nom_com","section","numero")){
+    if(f %in% colnames(p)){x <- "présent"}else{x <- "err"}
+    ck[[paste0("parcelle_champ_",f)]] <- x
+  }
+  p$surface <- round(as.numeric(st_area(p))/10000,2)
+  
+  p$parcelle <- paste0(p$nom_com,"_",p$section,"_",p$numero) 
+  p$etiquette <- paste0(str_remove(p$section,"^0{1,}"),str_remove(p$numero,"^0{1,}")) 
+  saveRDS(p,file.path(path,"parcelles.rds"))
+  
+  ck
+}
+
+
+#' Chemin du dossier des données
+#'
+#' @return chemin
+#' @export
+#'
+get_path <- function(){
+  # load(system.file("app/www/ini.RData",package = "boursefonciereforestiere"))
+  # sub("\\$HOME",Sys.getenv("HOME"),ini$dir)
+  r$dir
+}
+
+
+#' Import des données depuis un dossier externe
+#' 
+#' Le chemin du dossier externe est indiqué dans le fichier inst/path.txt du package:
+#' à défaut, $HOME/boursefonciereforestiere
+#'
+#' @return rien. Remplace admin.csv et le shapefile BDPARCELLE de data par ceux du dossier externe,
+#' et construit parcelles.rds.
+#' @export
+#'
+admin_check <- function(){
+  path <- get_path()
+  check <- list(admin="err")
+  
+  lf <- list.files(path)
+  
+  # check admin
+  
+  if("admin.csv" %in% lf){
+    check$admin <- "présent"
+    adm <- read.csv(file.path(path,"admin.csv"),stringsAsFactors = F)
+    arg <- names(as.list(args(admin)))
+    arg <- arg[arg != ""]
+    for(a in arg){
+      if(is.null(adm[[a]])){
+        check[[paste0("admin_",a)]] <- "err"
+      }else if(adm[[a]]==""){
+        check[[paste0("admin_",a)]] <- "err"
+      }else{
+        check[[paste0("admin_",a)]] <- adm[[a]]
+      }
+    }
+  }
+  
+  # check BDPARCELLE
+  lf_shp <- lf[grep("shp|shx|dbf|prj", lf)]
+  ext <- unlist(strsplit(lf_shp,"\\."))
+  shapefile_name <- ext[1]
+  ext <- ext[!ext == ext[1]]
+  ext_tem <- c("dbf","shp","shx","prj")
+  for(e in ext_tem){
+    if(e %in% ext){x <- "présent"}else{x <- "err"}
+    check[[paste0("parcelles_",e)]] <- x
+  }
+  if(shapefile_name != "BDPARCELLE"){
+    file.rename(paste0(path,"/",shapefile_name,".shp"),"BDPARCELLE.shp")
+    file.rename(paste0(path,"/",shapefile_name,".shx"),"BDPARCELLE.shx")
+    file.rename(paste0(path,"/",shapefile_name,".dbf"),"BDPARCELLE.dbf")
+    file.rename(paste0(path,"/",shapefile_name,".prj"),"BDPARCELLE.prj")
+  }
+  ck <- setup_parcelles(path)
+  for(f in names(ck)){check[[f]] <- ck[[f]]}
+  
+  # check db.sqlite
+  
+  if("db.sqlite" %in% lf){
+    check$db.sqlite <- "présent"
+  }else{
+    db <- RSQLite::dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+    on.exit(dbDisconnect(db))
+    admin_reset()
+    check$db.sqlite <- 'nouvelle'
+  }
+  
+  check
+  }
+
+#' Sauvegarde des données
+#' 
+#' db.sqlite, admin.csv et parcelles.rds sous le dossier indiqué dans path.txt
+#'
+#' @return copie des fichiers
+#' @export
+#'
+admin_backup <- function(){
+  path <- get_path()
+  
+  new <- file.path(path,paste0("backup_",Sys.time()))
+  dir.create(new)
+  file.copy(file.path(path,"db.sqlite"),new)
+  file.copy(file.path(path,"admin.csv"),new)
+  file.copy(file.path(path,"parcelles.rds"),new)
+  
+  message("Sauvegarde effectuée sous ",new)
+}
+
+
+#' Supprime toutes les données de la base
+#'
+#' @return rien
+#' @export
+#'
+admin_reset <- function(){
+  admin_backup()
+    init_table_proprio()
+    init_table_interet()
+    init_table_identite()
+    
+    message("reset effectué")
 }
 
 #' création objet r fictif pour debugage
@@ -469,7 +728,7 @@ init_table_proprio <- function(){
 #'
 r_debug <- function(){
   r <- list(user="a")
-  r$par = readRDS("inst/data/rdata/parcelles.rds")
+  r$par = readRDS(file.path(path,"parcelles.rds"))
   data <- r$par %>% left_join(read_proprietaire())
   data$proprietaire[is.na(data$proprietaire)] <- "?"
   data$couleur_proprietaire[is.na(data$couleur_proprietaire)] <- "#ffffffff"

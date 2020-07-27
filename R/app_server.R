@@ -7,14 +7,50 @@
 #' @noRd
 app_server <- function( input, output, session ) {
   # List the first level callModules here
-  
+
   r <- reactiveValues()
+  r$timer <- 0
   r$mode <- "proprietaire"
+  # load(system.file("app/www/ini.RData",package = "boursefonciereforestiere"))
   
+  # r$dir <- sub("\\$HOME",Sys.getenv("HOME"),ini$dir)
+  r$dir <- path
+
   observeEvent(r,once=TRUE,{
+
+    if(! file.exists(file.path(r$dir,"parcelles.rds"))){
+      callModule(mod_admin_acces_server,"mod")
+      showModal(mod_admin_acces_ui("mod"))
+    }else{
+      r$admin <- read.csv(file.path(r$dir,"admin.csv"),stringsAsFactors = F)
+    r$par = readRDS(file.path(r$dir,"parcelles.rds"))
+    r$parcelle <- r$admin$parcelle_ini #"Cheny_0A_0203"
+    
+    co <- as.character(unique(r$par$nom_com)[order(unique(r$par$nom_com))])
+    comi <- strsplit(r$admin$parcelle_ini,"_")[[1]][1]
+    p <- r$par %>% filter(nom_com == comi)
+    
+    updateSelectInput(session,"select_commune",choices = co,selected = comi)  
+    updateSelectInput(session,"select_section",choices = unique(p$section)[order(unique(p$section))] ,
+                      selected = strsplit(r$admin$parcelle_ini,"_")[[1]][2])  
+    updateSelectInput(session,"select_parcelle",choices = unique(p$numero)[order(unique(p$numero))],
+                      selected = strsplit(r$admin$parcelle_ini,"_")[[1]][3])  
+    
     # authentification --------------------------------------------------------
+    if(demo){
+     r$user == "Moi"
+      r$dir <- paste0("tmp_",sample.int(10000000000,1))
+      dir.create(file.path(path,r$dir))
+      file.copy(file.path(path,"db.sqlite"),r$dir)
+      file.copy(file.path(path,"admin.rds"),r$dir)
+      file.copy(file.path(path,"parcelles.rds"),r$dir)
+      on.exit(unlink(r$dir))
+    }else{
+    
     callModule(mod_accueil_server,"mod",r)
-    showModal(mod_accueil_ui("mod"))
+    showModal(mod_accueil_ui("mod",r$admin$commune,r))
+    }
+    }
   })
   
   # choix parcelle ----------------------------------------------------------
@@ -75,15 +111,10 @@ app_server <- function( input, output, session ) {
   })
   
   observeEvent(input$zoom,{
-    parcelle <- paste0(input$select_commune,"_",input$select_section,"_",input$select_parcelle)
-    if(parcelle %in% r$data$parcelle){
-      
-      r$parcelle <- get_parcelle(r,parcelle)
-    }
-    # bb <- st_bbox(r$data %>% filter(parcelle %in% r$parcelle))
-    # 
-    # leafletProxy("map",session) %>%
-    #   fitBounds(bb[1]-0.01,bb[4]-0.01,bb[3]+0.01,bb[2]+0.01)
+    bb <- zoom_parcelle(input,output,session,r)
+    
+    leafletProxy("map",session) %>%
+      fitBounds(bb[1]-0.001,bb[4]-0.001,bb[3]+0.001,bb[2]+0.001)
   })
   
   output$surface <- renderUI({
@@ -107,11 +138,15 @@ app_server <- function( input, output, session ) {
   # changement de parcelle --------------------------------------------------
   
   observeEvent(r$parcelle,{
-    req(r$parcelle != "__");req(r$data)
+
+    message("------------------------------------------------------")
+    message("parcelle:--------------",r$parcelle,"----------")
+    message("------------------------------------------------------")
+    
+    req(r$parcelle != "__");req(r$data);req(r$user)
     message("event r$parcelle ...")
     
     r$update <- FALSE
- 
     pc <- unlist(str_split(r$parcelle,"_"))
     
     p <- r$data %>% filter(parcelle %in% r$parcelle)
@@ -241,6 +276,11 @@ app_server <- function( input, output, session ) {
   # affectation des parcelles mode proprietaire-----------------------------------------------
   
   observeEvent(input$is_proprio,ignoreNULL = TRUE,handlerExpr = {
+    
+    message("------------------------------------------------------")
+    message("est propriétaire:--------------",input$is_proprio,"----------")
+    message("------------------------------------------------------")
+    
     req(r$update);
     req(r$parcelle)
     message("event input$is_proprio ...")
@@ -266,7 +306,7 @@ app_server <- function( input, output, session ) {
       int <- read_interet() %>% filter(parcelle %in% r$parcelle) %>% pull(interet)
       if(length(int)>0 & input$is_proprio == "non"){
         
-        showNotification("Des propriétaires se sont déclarés intéressés par cette parcelle. Si vous souhaitez vraiment retirer cette parcelle ou modifier son mode de session, merci d'écrire à <a href='mailto:bourse.forestiere.cheny@laposte.net'>bourse.forestiere.cheny@laposte.net</a>",
+        showNotification(paste0("Des propriétaires se sont déclarés intéressés par cette parcelle. Si vous souhaitez vraiment retirer cette parcelle ou modifier son mode de session, merci d'écrire à <a href='mailto:",r$admin$mail,"'>",r$admin$mail,"</a>"),
                          type = "error",duration = 20)
       }else{
         
@@ -287,6 +327,10 @@ app_server <- function( input, output, session ) {
   observeEvent(input$choix_proprio,ignoreInit = FALSE,handlerExpr = {
     req(r$update);
     req(r$parcelle)
+    
+    message("------------------------------------------------------")
+    message("choix propriétaire:--------------",input$choix_proprio,"----------")
+    message("------------------------------------------------------")
     
     message("event input$choix_proprio ...")
     freezeReactiveValue(input, "groupe")
@@ -314,7 +358,7 @@ app_server <- function( input, output, session ) {
         pro$a_vendre[pro$parcelle %in% r$parcelle] != pro1$a_vendre[pro$parcelle %in% r$parcelle]
        )){
       
-      showNotification("Des propriétaires se sont déclarés intéressés par cette parcelle. Si vous souhaitez vraiment retirer cette parcelle ou modifier son mode de session, merci d'écrire à bourse.forestiere.cheny@laposte.net",
+      showNotification(paste0("Des propriétaires se sont déclarés intéressés par cette parcelle. Si vous souhaitez vraiment retirer cette parcelle ou modifier son mode de session, merci d'écrire à ",r$admin$mail),
                        type = "error",duration = 20)
     }else{
       write_proprietaire(pro)
@@ -328,6 +372,10 @@ app_server <- function( input, output, session ) {
   observeEvent(input$is_interesse,ignoreNULL = TRUE,handlerExpr = {
     req(r$update);
     req(r$parcelle)
+    
+    message("------------------------------------------------------")
+    message("est interesse:--------------",input$is_interesse,"----------")
+    message("------------------------------------------------------")
     message("event input$is_interesse ...")
     int <- read_interet()
     freezeReactiveValue(input, "groupe")
@@ -357,6 +405,11 @@ app_server <- function( input, output, session ) {
     invalidateLater(1000, session)
     req(r$update);
     req(r$parcelle)
+    
+    message("------------------------------------------------------")
+    message("coeff valeur:--------------",input$coeff_val,"----------")
+    message("------------------------------------------------------")
+    
     message("event input$coeff_val ...")
     req( r$data %>% filter(parcelle %in% r$parcelle) %>% pull(proprietaire) != "?")
     freezeReactiveValue(input, "groupe")
@@ -389,33 +442,38 @@ app_server <- function( input, output, session ) {
   
   
   observeEvent(input$groupe,ignoreInit = TRUE,handlerExpr = {
-    req(r$update);
-    req(r$parcelle)
+    # req(r$update);
+    # req(r$parcelle)
     # groupe_parcelles(r,input$groupe)
     # r <- update_data(r,input,output,session,FALSE)
-    p <- r$data %>% filter(parcelle %in% r$parcelle)
+    # p <- r$data %>% filter(parcelle %in% r$parcelle)
     
-    req(r$user == p$proprietaire)
+    # req(r$user == p$proprietaire)
     
-    pp <- read_proprietaire() %>% filter(proprietaire == unique(p$proprietaire))
+    
+    message("------------------------------------------------------")
+    message("-------------------acces groupe------------------------")
+    message("------------------------------------------------------")
+    
+    pp <- read_proprietaire() %>% filter(proprietaire == unique(r$user))
     ppu <- pp %>% filter(is.na(parcelle_groupe))
     ppg <- pp %>% filter(!is.na(parcelle_groupe))
     
-    choices_ppu <- str_replace_all(ppu$parcelle,"_"," ")
-    choices_ppu <- choices_ppu[order(choices_ppu)]
+    r$choices_ppu <- str_replace_all(ppu$parcelle,"_"," ")
+    r$choices_ppu <- r$choices_ppu[order(r$choices_ppu)]
     
-    choices_ppg <- str_replace_all(ppg$parcelle_groupe,"__"," + ")
-    choices_ppg <- str_replace_all(choices_ppg,"_"," ")
-    choices_ppg <- choices_ppg[order(choices_ppg)]
-    if(length(choices_ppg)==0){
-      choices_ppg <- "aucun groupe n'a encore été créé"
+    r$choices_ppg <- str_replace_all(ppg$parcelle_groupe,"__"," + ")
+    r$choices_ppg <- str_replace_all(r$choices_ppg,"_"," ")
+    r$choices_ppg <- r$choices_ppg[order(r$choices_ppg)]
+    if(length(r$choices_ppg)==0){
+      r$choices_ppg <- "aucun groupe n'a encore été créé"
     }else{
-      choices_ppg <- unique(choices_ppg)
+      r$choices_ppg <- unique(r$choices_ppg)
     }
     
     callModule(mod_groupe_server, "mod",r)
     showModal(
-      mod_groupe_ui("mod")
+      mod_groupe_ui("mod",r)
     )
   })
   
@@ -423,7 +481,10 @@ app_server <- function( input, output, session ) {
   
   observeEvent(input$rendu_bilan,ignoreInit = T,handlerExpr = ,{
     
-    b <- bilan_proprietaire(r$data,r$user)
+    message("------------------------------------------------------")
+    message("-------------------acces bilan------------------------")
+    message("------------------------------------------------------")
+    r$b <- bilan_proprietaire(r$data,r$user)
     ide <- read_identite() %>% arrange(proprietaire)
     propri <- ide$proprietaire[-1]
     
@@ -437,11 +498,9 @@ app_server <- function( input, output, session ) {
 # contact -----------------------------------------------------------------
 
   observeEvent(input$contact,{
-    b <- bilan_proprietaire(r$data,r$user)
-    ide <- read_identite() %>% arrange(proprietaire)
-    propri <- ide$proprietaire[-1]
+   
     
-    callModule(mod_bilan_proprio_server, "mod")
+    callModule(mod_contact_proprio_server, "mod",r)
     showModal(
       mod_contact_proprio_ui("mod")
     )
@@ -454,10 +513,16 @@ app_server <- function( input, output, session ) {
   observeEvent(input$help,{
     showModal(
       modalDialog(
-        includeHTML("presentation.html"),
+        includeMarkdown(file.path(system.file(package = "boursefonciereforestiere"),"aide","manuel_utilisateur.md")),
         footer = tagList(modalButton("Quitter l'aide")),
         size="l",easyClose=TRUE)
     )
   })
   
+  
+  # output$keepAlive <- renderText({
+  #   invalidateLater(4000)
+  #   r$timer <- r$timer + 1
+  #   r$timer
+  # })   
 }

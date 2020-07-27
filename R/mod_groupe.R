@@ -7,7 +7,7 @@
 #' @noRd 
 #'
 #' @importFrom shiny NS tagList 
-mod_groupe_ui <- function(id){
+mod_groupe_ui <- function(id,r){
   ns <- NS(id)
   tagList(
     modalDialog(
@@ -18,7 +18,7 @@ mod_groupe_ui <- function(id){
       checkboxGroupButtons(
         inputId = ns("choix_parcelles_groupe"),
         label = "sélectionnez les parcelles à grouper",
-        choices = choices_ppu,
+        choices = r$choices_ppu,
         checkIcon = list(
           yes = icon("ok", 
                      lib = "glyphicon"))
@@ -31,7 +31,7 @@ mod_groupe_ui <- function(id){
       radioGroupButtons(
         inputId = ns("choix_rm_groupe"),
         label = "Sélectionnez un groupe à supprimer",
-        choices = choices_ppg,
+        choices = r$choices_ppg,
         checkIcon = list(
           yes = icon("ok", 
                      lib = "glyphicon"))

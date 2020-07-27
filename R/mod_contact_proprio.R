@@ -14,7 +14,7 @@ mod_contact_proprio_ui <- function(id){
       title = "Contacter un propriétaire",
       size = "l", easyClose = TRUE,
       
-      radioGroupButtons(ns("contacts"),"Contacter un propriétaire",choices =  propri,selected = NULL),
+      radioGroupButtons(ns("contacts"),"Contacter un propriétaire",choices =  "NULL",selected = NULL),
       br(),
       textAreaInput(ns("text_mail_proprio"),"Ecrivez ici votre message:",width = "600px"),
       br(),
@@ -36,10 +36,21 @@ mod_contact_proprio_ui <- function(id){
 mod_contact_proprio_server <- function(input, output, session, r){
   ns <- session$ns
   
+  r$ide <- read_identite() %>% arrange(proprietaire)
+  r$propri <- r$ide$proprietaire[-1]
+  
+  observe({
+    req(r$propri)
+    
+    updateRadioGroupButtons(session,"contacts",choices = r$propri)
+  })
+  
   observeEvent(input$send_mail_proprio, ignoreInit = TRUE,handlerExpr = {
-    admin=read.csv("admin.csv",stringsAsFactors = F)
-    dest <- ide$mail[ide$proprietaire == input$contacts]
-    send.mail(from = admin$mail,
+  
+    if(!demo){  
+    admin <- r$admin
+    dest <- r$ide$mail[r$ide$proprietaire == input$contacts]
+    envoi <- try(send.mail(from = admin$mail,
               to = dest,
               subject = paste("Message de la part de",r$user),
               body = input$text_mail_proprio,
@@ -48,9 +59,18 @@ mod_contact_proprio_server <- function(input, output, session, r){
                           user.name = admin$username_smtp,            
                           passwd = admin$password_smtp, ssl = TRUE),
               authenticate = TRUE,
-              send = TRUE)
+              debug = TRUE,
+              send = TRUE))
+    if(class(envoi) == "try-error"){
+      showNotification(paste("Désolé, votre message n'a pas pu être envoyé: réessayez. Si l'erreur persiste, contactez: ",
+                             r$admin$mail),type = "error")
+    }else{
+      showNotification(paste("Message envoyé à",input$contacts))  
+    }
+    }else{
+      showNotification(paste("Message envoyé à",input$contacts))
+    }
     
-    showNotification(paste("Message envoyé à",dest))
     updateRadioGroupButtons(session,'contacts',selected = NULL)
     
   })

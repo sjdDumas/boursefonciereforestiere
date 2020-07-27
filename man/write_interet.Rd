@@ -6,6 +6,9 @@
 \usage{
 write_interet(pr)
 }
+\arguments{
+\item{pr}{table}
+}
 \value{
 data frame
 }

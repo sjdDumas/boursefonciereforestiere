@@ -42,15 +42,15 @@ mod_bilan_proprio_server <- function(input, output, session, r){
   ns <- session$ns
   
   output$bilan_echange <- renderTable({
-    b$tab_bilan
+    r$b$tab_bilan
   })
   
   output$bilan_prop <- renderTable({
-    b$proprietes 
+    r$b$proprietes 
   },spacing = "xs")
   
   output$bilan_acq <- renderTable({
-    b$acquisition
+    r$b$acquisition
   })
 }
     

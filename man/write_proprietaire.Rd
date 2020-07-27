@@ -6,6 +6,9 @@
 \usage{
 write_proprietaire(pr)
 }
+\arguments{
+\item{pr}{table}
+}
 \value{
 rien
 }

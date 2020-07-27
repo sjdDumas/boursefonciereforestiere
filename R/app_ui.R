@@ -6,11 +6,32 @@
 #' @noRd
 app_ui <- function(request) {
   tagList(
+    # tags$script(
+    #   "(function() {
+    #     var timeoutWarningMsecs = 120 * 1000;
+    #     var idleTimer;
+    #     
+    #     function onTimeout() {
+    #       alert('Session supsendu pour cause d inactivité');
+    #     }
+    #     
+    #     function startIdleTimer() {
+    #       if (idleTimer) clearTimeout(idleTimer);
+    #       idleTimer = setTimeout(onTimeout, timeoutWarningMsecs);
+    #     }
+    #     
+    #     $(document).on('shiny:message shiny:inputchanged', startIdleTimer);
+    #     
+    #   })();"
+    # ),
     # Leave this function for adding external resources
     golem_add_external_resources(),
     # List the first level UI elements here 
     fluidPage(
       fluidPage( style = "background-color:#eeeeff",
+            
+                 div(style="position:absolute;top:-200px", textOutput("keepAlive")),
+                 
                  
                  fluidRow(style = "background-color:#ddddff; padding-left: 10px; margin-top: -10px;",
                           h3("Bourse foncière forestière communale de Cheny")  
@@ -56,61 +77,61 @@ app_ui <- function(request) {
                                         h4(uiOutput("commentaires_parcelle"))
                                  )
                         ),
-                        fluidRow(id="autre_proprio",
-                                 column(6,#style="margin-top:-20px", 
-                                        htmlOutput("is_prise")
-                                        # div(id='is_prise',
-                                        #     h6("quelqu'un s'est déjà déclaré intéressé"))
-                                 ),
-                                 column(6,style="margin-top:-20px", 
-                                        radioGroupButtons(
-                                          inputId = "is_interesse",
-                                          label = "",
-                                          choiceNames = c("je suis intéressé","pas intéressé"),
-                                          choiceValues = c("oui","non"),
-                                          selected="non",
-                                          justified = TRUE, size = "sm",
-                                          checkIcon = list(
-                                            yes = icon("ok", 
-                                                       lib = "glyphicon"))
+                        hidden(fluidRow(id="autre_proprio",
+                                        column(6,#style="margin-top:-20px", 
+                                               htmlOutput("is_prise")
+                                               # div(id='is_prise',
+                                               #     h6("quelqu'un s'est déjà déclaré intéressé"))
+                                        ),
+                                        column(6,style="margin-top:-20px", 
+                                               radioGroupButtons(
+                                                 inputId = "is_interesse",
+                                                 label = "",
+                                                 choiceNames = c("je suis intéressé","pas intéressé"),
+                                                 choiceValues = c("oui","non"),
+                                                 selected="non",
+                                                 justified = TRUE, size = "sm",
+                                                 checkIcon = list(
+                                                   yes = icon("ok", 
+                                                              lib = "glyphicon"))
+                                               )
                                         )
-                                 )
-                        ),
-                        fluidRow(id="proprio",
-                                 column(3,           
-                                        h5("Etes-vous le propriétaire?")
-                                 ),
-                                 column(3, style="margin-top:-20px", 
-                                        radioGroupButtons(
-                                          inputId = "is_proprio",
-                                          label = "",
-                                          choices = c("oui","non"),
-                                          selected="non",
-                                          justified = TRUE, size = "sm",
-                                          checkIcon = list(
-                                            yes = icon("ok", 
-                                                       lib = "glyphicon"))
+                        )),
+                        hidden(fluidRow(id="proprio",
+                                        column(3,           
+                                               h5("Etes-vous le propriétaire?")
+                                        ),
+                                        column(3, style="margin-top:-20px", 
+                                               radioGroupButtons(
+                                                 inputId = "is_proprio",
+                                                 label = "",
+                                                 choices = c("oui","non"),
+                                                 selected="non",
+                                                 justified = TRUE, size = "sm",
+                                                 checkIcon = list(
+                                                   yes = icon("ok", 
+                                                              lib = "glyphicon"))
+                                               )
+                                               
+                                        ),
+                                        div(id="est_proprio",
+                                            column(2, h5("Vous souhaitez:")),
+                                            column(4, style="margin-top:-20px;padding:0", 
+                                                   radioGroupButtons(
+                                                     inputId = "choix_proprio",
+                                                     label = "",
+                                                     choiceNames = c("l'échanger","la vendre","la conserver"),
+                                                     choiceValues = c("echange","vend","garde"),
+                                                     justified = TRUE, size = "sm",
+                                                     selected = "echange",
+                                                     checkIcon = list(
+                                                       yes = icon("ok", 
+                                                                  lib = "glyphicon"))
+                                                   )
+                                            )
                                         )
                                         
-                                 ),
-                                 div(id="est_proprio",
-                                     column(2, h5("Vous souhaitez:")),
-                                     column(4, style="margin-top:-20px;padding:0", 
-                                            radioGroupButtons(
-                                              inputId = "choix_proprio",
-                                              label = "",
-                                              choiceNames = c("l'échanger","la vendre","la conserver"),
-                                              choiceValues = c("echange","vend","garde"),
-                                              justified = TRUE, size = "sm",
-                                              selected = "echange",
-                                              checkIcon = list(
-                                                yes = icon("ok", 
-                                                           lib = "glyphicon"))
-                                            )
-                                     )
-                                 )
-                                 
-                        ),
+                        )),
                         bsAlert("alert"),
                         fluidRow(style="margin-top:20px;margin-left:0px;",
                                  leafletOutput("map",height = "80vh"),
@@ -158,6 +179,7 @@ golem_add_external_resources <- function(){
   add_resource_path(
     'www', app_sys('app/www')
   )
+  
   
   tags$head(
     favicon(),
