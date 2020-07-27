@@ -1,0 +1,29 @@
+Package: boursefonciereforestiere
+Title: Bourse d'échange foncière forestière
+Version: 0.0.0.9000
+Authors@R: person('Stéphane', 'Dumas', email = 'sjd.dumas@laposte.net', role = c('cre', 'aut'))
+Description: Permettre la mise en relation de propriétaire forestiers en vue d'échanger leurs parcelle et regrouper le foncier par des échanges multipartites.
+License: MIT + file LICENSE
+Imports: 
+    config,
+    golem,
+    shiny,
+    DBI,
+    RSQLite,
+    leaflet,
+    dplyr,
+    sf,
+    shinyjs,
+    htmltools,
+    shinybusy,
+    shinyWidgets,
+    shinyBS,
+    stringr,
+    ggplot2,
+    ggtext,
+    tidyr,
+    gridExtra,
+    mailR
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.0.2
