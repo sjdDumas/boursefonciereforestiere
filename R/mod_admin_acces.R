@@ -12,10 +12,16 @@ mod_admin_acces_ui <- function(id){
   tagList(
     modalDialog(
       passwordInput(ns("psw"),"Saisissez le mot de passe"),
-      footer = tagList(
-        actionBttn(ns("ok"),"OK",size = "xs"),
-        modalButton("Quitter")
-      )
+      column(6,
+      actionBttn(ns("ok"),"OK",size = "xs")
+      ),
+      column(6,
+             actionBttn(ns("abandonner"),"Abandonner",size = "xs")
+      ),
+      
+      
+      footer = NULL
+      
     )
   )
 }
@@ -26,9 +32,11 @@ mod_admin_acces_ui <- function(id){
 mod_admin_acces_server <- function(input, output, session){
   ns <- session$ns
  
-  
+  observeEvent(input$abandonner,{
+    stopApp()
+  })
   observeEvent(input$ok,{
-    load(system.file("app/www/ini.RData",package = "boursefonciereforestiere"))
+    ini <- readRDS(file.path(path,"ini.rds"))
     
     if(input$psw == ini$psw){
       callModule(mod_admin_server,"mod")

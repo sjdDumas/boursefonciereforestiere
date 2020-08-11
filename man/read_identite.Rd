@@ -4,7 +4,10 @@
 \alias{read_identite}
 \title{lecture base de donnée identite}
 \usage{
-read_identite()
+read_identite(inv = FALSE)
+}
+\arguments{
+\item{inv}{si TRUE, retourne aussi les inscriptions non validées}
 }
 \value{
 data frame

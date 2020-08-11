@@ -1,30 +1,43 @@
-FROM rocker/r-ver:3.6.2
+FROM rocker/shiny:3.6.2
 RUN apt-get update && apt-get install -y  default-jre-headless gdal-bin git-core libcurl4-openssl-dev libgdal-dev libgeos-dev libgeos++-dev libgit2-dev libpng-dev libssh2-1-dev libssl-dev libudunits2-dev libxml2-dev make pandoc pandoc-citeproc zlib1g-dev && rm -rf /var/lib/apt/lists/*
 RUN echo "options(repos = c(CRAN = 'https://cran.rstudio.com/'), download.file.method = 'libcurl')" >> /usr/local/lib/R/etc/Rprofile.site
 RUN R -e 'install.packages("remotes")'
-RUN R -e 'remotes::install_github("r-lib/remotes", ref = "97bbf81")'
-RUN Rscript -e 'remotes::install_version("config",upgrade="never", version = "0.3")'
-RUN Rscript -e 'remotes::install_version("golem",upgrade="never", version = "0.2.1")'
-RUN Rscript -e 'remotes::install_version("shiny",upgrade="never", version = "1.4.0")'
-RUN Rscript -e 'remotes::install_version("DBI",upgrade="never", version = "1.1.0")'
-RUN Rscript -e 'remotes::install_version("RSQLite",upgrade="never", version = "2.2.0")'
-RUN Rscript -e 'remotes::install_version("leaflet",upgrade="never", version = "2.0.3")'
-RUN Rscript -e 'remotes::install_version("dplyr",upgrade="never", version = "0.8.3")'
-RUN Rscript -e 'remotes::install_version("sf",upgrade="never", version = "0.9-5")'
-RUN Rscript -e 'remotes::install_version("shinyjs",upgrade="never", version = "1.1")'
-RUN Rscript -e 'remotes::install_version("htmltools",upgrade="never", version = "0.4.0")'
-RUN Rscript -e 'remotes::install_version("shinybusy",upgrade="never", version = "0.2.0")'
-RUN Rscript -e 'remotes::install_version("shinyWidgets",upgrade="never", version = "0.5.0")'
-RUN Rscript -e 'remotes::install_version("shinyBS",upgrade="never", version = "0.61")'
-RUN Rscript -e 'remotes::install_version("stringr",upgrade="never", version = "1.4.0")'
-RUN Rscript -e 'remotes::install_version("ggplot2",upgrade="never", version = "3.3.2")'
-RUN Rscript -e 'remotes::install_version("ggtext",upgrade="never", version = "0.1.0")'
-RUN Rscript -e 'remotes::install_version("tidyr",upgrade="never", version = "1.0.0")'
-RUN Rscript -e 'remotes::install_version("gridExtra",upgrade="never", version = "2.3")'
-RUN Rscript -e 'remotes::install_version("mailR",upgrade="never", version = "0.4.1")'
+RUN R -e 'install.packages("config")'
+RUN R -e 'install.packages("golem")'
+RUN R -e 'install.packages("DBI")'
+RUN R -e 'install.packages("RSQLite")'
+RUN R -e 'install.packages("leaflet")'
+RUN R -e 'install.packages("dplyr")'
+RUN R -e 'install.packages("sf")'
+RUN R -e 'install.packages("shinyjs")'
+RUN R -e 'install.packages("htmltools")'
+RUN R -e 'install.packages("shinybusy")'
+RUN R -e 'install.packages("shinyWidgets")'
+RUN R -e 'install.packages("shinyBS")'
+RUN R -e 'install.packages("stringr")'
+RUN R -e 'install.packages("ggplot2")'
+RUN R -e 'install.packages("ggtext")'
+RUN R -e 'install.packages("tidyr")'
+RUN R -e 'install.packages("gridExtra")'
+RUN R -e 'install.packages("leaflet")'
+RUN R CMD javareconf
+RUN R -e 'install.packages("sf")'
+RUN apt-get update
+RUN apt-get install -y openjdk-11-jdk
+RUN R CMD javareconf
+RUN apt-get install -y libbz2-dev libicu-dev
+RUN R -e 'install.packages("mailR")'	
+
+RUN wget https://repo1.maven.org/maven2/javax/activation/javax.activation-api/1.2.0/javax.activation-api-1.2.0.jar
+RUN wget https://repo1.maven.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.jar
+
+RUN R -e 'file.copy("javax.activation-api-1.2.0.jar", system.file("java", package = "mailR"))'
+RUN R -e 'file.copy("javax.activation-1.2.0.jar", system.file("java", package = "mailR"))'
+
 RUN mkdir /build_zone
 ADD . /build_zone
 WORKDIR /build_zone
-RUN R -e 'remotes::install_local(upgrade="never")'
-EXPOSE 80
-CMD R -e "options('shiny.port'=80,shiny.host='0.0.0.0');boursefonciereforestiere::run_app()"
+COPY boursefonciereforestiere_0.0.0.9000.tar.gz /build_zone
+RUN R -e 'install.packages("boursefonciereforestiere_0.0.0.9000.tar.gz",repos=NULL)'
+EXPOSE 3838
+

@@ -9,9 +9,19 @@ run_app <- function(
   ...
 ) {
   with_golem_options(
+    
     app = shinyApp(
       ui = app_ui, 
-      server = app_server
+      server = app_server,
+      onStart = function() {
+        cat("Doing application setup\n")
+        onStop(function() {
+              if(demo){
+                print("unlink")
+                unlink(get_path(),recursive = TRUE)
+              }
+            })
+        }
     ), 
     golem_opts = list(...)
   )

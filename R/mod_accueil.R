@@ -52,6 +52,11 @@ mod_accueil_ui <- function(id,com,r){
                              column(6,textInput(ns("mail"), "Adresse mail", value = NULL)),
                              column(6,textInput(ns("mail2"), "confirmation adresse mail", value = NULL))
                            ),
+                           br(),
+                           fluidRow(
+                             column(6,h5("Merci d'indiquer la section et le numéro d'une parcelle dont vous être propriétaire sur la commune :")),
+                             column(6,textInput(ns("parcelle"), "", value = ""))
+                           ),
                            br(),br(),
                            actionBttn(ns("submit_acces"),"Demander l'ouverture d'un compte",size="xs")
                   )
@@ -82,7 +87,7 @@ mod_accueil_server <- function(input, output, session,r){
         size="l")
     )
   })
- 
+
   observeEvent(input$exit,{
     removeModal()
     callModule(mod_accueil_server,"mod2",r)
@@ -117,14 +122,31 @@ mod_accueil_server <- function(input, output, session,r){
                             read_identite()$couleur_proprietaire,";\'> ",pers,"</img>")
       names(pers)[1] <- "?"
       updateRadioGroupButtons(session,"proprietaire",choices =  pers)  
-      updateRadioGroupButtons(session,"new_proprietaire",choices = pers)
+      # updateRadioGroupButtons(session,"new_proprietaire",choices = pers)
       # affiche_controles(r,input,output,session)
       
       message("event ini OK")
       ate <- TRUE
       parcelle <- r$admin$parcelle_ini
       r$parcelle <- get_parcelle(r,parcelle)
-      
+
+      path <- get_path()
+      db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+      on.exit(dbDisconnect(db))
+      if("notification" %in% dbListTables(db)){
+        
+        not <- dbReadTable(db,"notification") %>% filter(proprietaire == r$user)
+        if(nrow(not)>0){
+          for(i in 1:nrow(not)){
+            showNotification(not$message[i],duration = 1000)
+          }
+          not <- dbReadTable(db,"notification") %>% filter(proprietaire != r$user)
+          dbWriteTable(db,"notification",not,overwrite=TRUE)
+          
+        }
+        
+      }
+            
       shinybusy::remove_modal_spinner() 
     }
     
@@ -160,30 +182,58 @@ mod_accueil_server <- function(input, output, session,r){
                              psw=input$new_psw,
                              couleur_proprietaire="",
                              mail=input$mail,
-                             valide=1))
+                             valide=0,
+                             parcelle=input$parcelle))
       db <- dbConnect(RSQLite::SQLite(), file.path(r$dir,"db.sqlite"))
       dbWriteTable(db,'identite',id,overwrite = TRUE)
       dbDisconnect(db)
       
-      send.mail(from = r$admin$mail,
-                to = input$mail,
-                subject = paste("bourse foncière forestière de",r$admin$commune),
-                body = paste("Bonjour,\n Votre compte est ouvert. Vous pouvez y accéder dès maintenant.\n",
-                             "Vos identifiants sont:\n   - Nom: ",input$new_login,
-                             "\n   - Mot de passe: ",input$new_psw,"\n\n",
-                             "Pour toute question, n`hésitez pas à me contacter par retour de mail.\n\n",
-                             "Bien cordialement,\n",r$admin$administrateur,", ",r$admin$titre_administrateur),
-                
-                smtp = list(host.name = r$admin$host, port = r$admin$port_smtp, 
-                            user.name = r$admin$username_smtp,            
-                            passwd = r$admin$password_smtp, ssl = TRUE),
-                authenticate = TRUE,
-                send = TRUE)
+      admin <- r$admin
+      dest <- r$ide$mail[r$ide$proprietaire == input$contacts]
+      envoi <- try(send.mail(from = admin$mail,
+                             to = admin$mail,
+                             subject = "Demande d'inscription",
+                             body = paste("login: ", input$new_login),
+                             
+                             smtp = list(host.name = admin$host, port = admin$port_smtp, 
+                                         user.name = admin$username_smtp,            
+                                         passwd = admin$password_smtp, ssl = TRUE),
+                             authenticate = TRUE,
+                             debug = TRUE,
+                             send = TRUE))
       
-      showNotification("Inscription enregistrée. Votre compte est ouvert: saisissez votre nom et votre mot de passe...",duration = 20)
-      hideElement("form_new_login")
-      updateTextInput(session,"login",value="")
-      updateTextInput(session,"psw",value="")
+      showModal(
+        modalDialog(
+        h4("Merci. Votre demande a bien été enregistrée. Vous recevrez un mail vous indinquant les suites données à son traitement."),
+        br(),br(),
+        actionButton(ns("exit_insc"),"Quitter"),
+        footer = NULL
+        )
+      )
+      
+      observeEvent(input$exit_insc,{
+        stopApp()
+      })
+      
+      # send.mail(from = r$admin$mail,
+      #           to = input$mail,
+      #           subject = paste("bourse foncière forestière de",r$admin$commune),
+      #           body = paste("Bonjour,\n Votre compte est ouvert. Vous pouvez y accéder dès maintenant.\n",
+      #                        "Vos identifiants sont:\n   - Nom: ",input$new_login,
+      #                        "\n   - Mot de passe: ",input$new_psw,"\n\n",
+      #                        "Pour toute question, n`hésitez pas à me contacter par retour de mail.\n\n",
+      #                        "Bien cordialement,\n",r$admin$administrateur,", ",r$admin$titre_administrateur),
+      #           
+      #           smtp = list(host.name = r$admin$host, port = r$admin$port_smtp, 
+      #                       user.name = r$admin$username_smtp,            
+      #                       passwd = r$admin$password_smtp, ssl = TRUE),
+      #           authenticate = TRUE,
+      #           send = TRUE)
+      # 
+      # showNotification("Inscription enregistrée. Votre compte est ouvert: saisissez votre nom et votre mot de passe...",duration = 20)
+      # hideElement("form_new_login")
+      # updateTextInput(session,"login",value="")
+      # updateTextInput(session,"psw",value="")
       
     }
     

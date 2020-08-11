@@ -6,39 +6,54 @@
 #' @noRd
 app_ui <- function(request) {
   tagList(
-    # tags$script(
-    #   "(function() {
-    #     var timeoutWarningMsecs = 120 * 1000;
-    #     var idleTimer;
-    #     
-    #     function onTimeout() {
-    #       alert('Session supsendu pour cause d inactivité');
-    #     }
-    #     
-    #     function startIdleTimer() {
-    #       if (idleTimer) clearTimeout(idleTimer);
-    #       idleTimer = setTimeout(onTimeout, timeoutWarningMsecs);
-    #     }
-    #     
-    #     $(document).on('shiny:message shiny:inputchanged', startIdleTimer);
-    #     
-    #   })();"
-    # ),
+    tags$head(
+      tags$script(
+        '$(document).ready(function(){
+          $.get("http://ipinfo.io", function(response) {
+          Shiny.onInputChange("getIP", response);
+            }, "json");
+          });'
+      )
+      
+    ),
+    tags$script(
+      "(function() {
+        var timeoutWarningMsecs = 120 * 1000;
+        var idleTimer;
+
+        function onTimeout() {
+          alert('Session supsendu pour cause d inactivité');
+        }
+
+        function startIdleTimer() {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = setTimeout(onTimeout, timeoutWarningMsecs);
+        }
+
+        $(document).on('shiny:message shiny:inputchanged', startIdleTimer);
+
+      })();"
+    ),
     # Leave this function for adding external resources
     golem_add_external_resources(),
     # List the first level UI elements here 
-    fluidPage(
+    
       fluidPage( style = "background-color:#eeeeff",
             
-                 div(style="position:absolute;top:-200px", textOutput("keepAlive")),
+                 div(style="position:absolute;top:50vh;right:50vw", spin_epic("flower")),
                  
                  
                  fluidRow(style = "background-color:#ddddff; padding-left: 10px; margin-top: -10px;",
                           h3("Bourse foncière forestière communale de Cheny")  
                  ),
                  
+                 tags$style("body {padding-right: 0px !important;}"),
                  tags$style("#side {margin-top: 10px;margin-left:0px;}"),
                  tags$style(".bttn {width:150px;}"),
+                 tags$style("#quit {background:none; border:none;;}"),
+                 
+                 div(id = "bouttonQuit", style = "position: absolute; top: 4px; right: 4px;",
+                     actionButton("quit","",icon = icon("times-circle"))),
                  
                  column(3, id="side",    
                         # tags$style("th, td {ont-size:10px;padding:1px !important; font-stretch: extra-condensed !important}
@@ -50,7 +65,8 @@ app_ui <- function(request) {
                           htmlOutput(("info_groupe")),
                           htmlOutput("surface"),
                           h6(style = "margin-bottom:-20px","pondération valeur:"),
-                          numericInput("coeff_val","",min = 0,max = 10,step = 0.1,value = 1,width = "100px"),
+                          sliderInput("coeff_val","",min = 0,max = 1,step = 0.1,round = FALSE, 
+                                        value = 1,width = "100px"),
                           br()
                         ),
                         
@@ -160,10 +176,13 @@ app_ui <- function(request) {
                  bsPopover("surface","surface géographique (peut diverger légèrement de la surface cadastrale)"),
                  bsPopover("rendu_bilan","Récaitulatif de vos parcelles","Accédez aux tabeaux des parcelles que vous avez enregistées ou pour lesquelles vous avez déclaré votre intérêt"),
                  bsPopover("contact","Envoyer un mail à un propriétaire"),
-                 bsTooltip("","")
+                 bsTooltip("quit","Quitter"),
+                 
+                 profvis::profvis_ui("profiler")
+                 
       )
     )
-  )
+  
 }
 
 #' Add external Resources to the Application

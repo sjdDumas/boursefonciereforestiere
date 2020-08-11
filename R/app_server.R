@@ -7,7 +7,8 @@
 #' @noRd
 app_server <- function( input, output, session ) {
   # List the first level callModules here
-
+  callModule(profvis::profvis_server, "profiler")
+  
   r <- reactiveValues()
   r$timer <- 0
   r$mode <- "proprietaire"
@@ -15,41 +16,67 @@ app_server <- function( input, output, session ) {
   
   # r$dir <- sub("\\$HOME",Sys.getenv("HOME"),ini$dir)
   r$dir <- path
-
+  saveRDS(path, "path.rds")
+  
+  IP <- reactive({ input$getIP })
+  
+  
+  observe({
+    cat(capture.output(str(IP()), split=TRUE))
+    
+  })
+  
+  autoInvalidate <- reactiveTimer(4000)
+  observe({
+    autoInvalidate()
+    cat(".")
+  })
+  
+  
+  
+  observeEvent(input$quit,{
+    showNotification("Merci de votre visite.")
+    invalidateLater(2000,session)
+    stopApp()
+  })
+  
   observeEvent(r,once=TRUE,{
-
+    
     if(! file.exists(file.path(r$dir,"parcelles.rds"))){
       callModule(mod_admin_acces_server,"mod")
       showModal(mod_admin_acces_ui("mod"))
     }else{
       r$admin <- read.csv(file.path(r$dir,"admin.csv"),stringsAsFactors = F)
-    r$par = readRDS(file.path(r$dir,"parcelles.rds"))
-    r$parcelle <- r$admin$parcelle_ini #"Cheny_0A_0203"
-    
-    co <- as.character(unique(r$par$nom_com)[order(unique(r$par$nom_com))])
-    comi <- strsplit(r$admin$parcelle_ini,"_")[[1]][1]
-    p <- r$par %>% filter(nom_com == comi)
-    
-    updateSelectInput(session,"select_commune",choices = co,selected = comi)  
-    updateSelectInput(session,"select_section",choices = unique(p$section)[order(unique(p$section))] ,
-                      selected = strsplit(r$admin$parcelle_ini,"_")[[1]][2])  
-    updateSelectInput(session,"select_parcelle",choices = unique(p$numero)[order(unique(p$numero))],
-                      selected = strsplit(r$admin$parcelle_ini,"_")[[1]][3])  
-    
-    # authentification --------------------------------------------------------
-    if(demo){
-     r$user == "Moi"
-      r$dir <- paste0("tmp_",sample.int(10000000000,1))
-      dir.create(file.path(path,r$dir))
-      file.copy(file.path(path,"db.sqlite"),r$dir)
-      file.copy(file.path(path,"admin.rds"),r$dir)
-      file.copy(file.path(path,"parcelles.rds"),r$dir)
-      on.exit(unlink(r$dir))
-    }else{
-    
-    callModule(mod_accueil_server,"mod",r)
-    showModal(mod_accueil_ui("mod",r$admin$commune,r))
-    }
+      r$par = readRDS(file.path(r$dir,"parcelles.rds"))
+      r$parcelle <- r$admin$parcelle_ini #"Cheny_0A_0203"
+      
+      co <- as.character(unique(r$par$nom_com)[order(unique(r$par$nom_com))])
+      comi <- strsplit(r$admin$parcelle_ini,"_")[[1]][1]
+      p <- r$par %>% filter(nom_com == comi)
+      
+      updateSelectInput(session,"select_commune",choices = co,selected = comi)  
+      updateSelectInput(session,"select_section",choices = unique(p$section)[order(unique(p$section))] ,
+                        selected = strsplit(r$admin$parcelle_ini,"_")[[1]][2])  
+      updateSelectInput(session,"select_parcelle",choices = unique(p$numero)[order(unique(p$numero))],
+                        selected = strsplit(r$admin$parcelle_ini,"_")[[1]][3])  
+      
+      # authentification --------------------------------------------------------
+      if(demo){
+        r$user <-  "Moi"
+        r$dir <- paste0(r$dir,"tmp_",sample.int(10000000000,1))
+        saveRDS(r$dir,"path.rds")
+        dir.create(file.path(r$dir))
+        file.copy(file.path(path,"db.sqlite"),r$dir)
+        file.copy(file.path(path,"admin.rds"),r$dir)
+        file.copy(file.path(path,"parcelles.rds"),r$dir)
+        showNotification("Vous êtes en mode démonstration. Votre nom de propriétaire est 'Moi'",
+                         duration = 10, type = "message")
+        r <- update_data(r,input,output,session,ini=TRUE)  
+      }else{
+        
+        callModule(mod_accueil_server,"mod",r)
+        showModal(mod_accueil_ui("mod",r$admin$commune,r))
+      }
     }
   })
   
@@ -98,23 +125,37 @@ app_server <- function( input, output, session ) {
   })
   
   observeEvent(input$map_marker_click,{
-    
+    req(is.null(r$click))
+    print("------------marker click-------------")
+    r$click <- 1
+    update <- FALSE
     pt <- st_as_sf(data.frame(x=input$map_marker_click$lng,y=input$map_marker_click$lat),
                    coords = c("x","y"), crs=4326)
     parcelle <- r$data$parcelle[st_intersects(pt,r$data)[[1]]]
     r$parcelle <- get_parcelle(r,parcelle)
+    r$click <- NULL
+    update <- TRUE
   })
   
   observeEvent(input$map_shape_click,{
+    req(is.null(r$click))
+    print("------------shape click-------------")
+    
+    
+    r$click <- 1
+    
+    update <- FALSE
     parcelle <- input$map_shape_click$id
     r$parcelle <- get_parcelle(r,parcelle)
+    r$click <- NULL
+    update <- TRUE
   })
   
   observeEvent(input$zoom,{
     bb <- zoom_parcelle(input,output,session,r)
     
     leafletProxy("map",session) %>%
-      fitBounds(bb[1]-0.001,bb[4]-0.001,bb[3]+0.001,bb[2]+0.001)
+      fitBounds(bb[1]-0.0003,bb[4]-0.0003,bb[3]+0.0003,bb[2]+0.0003)
   })
   
   output$surface <- renderUI({
@@ -138,7 +179,7 @@ app_server <- function( input, output, session ) {
   # changement de parcelle --------------------------------------------------
   
   observeEvent(r$parcelle,{
-
+    
     message("------------------------------------------------------")
     message("parcelle:--------------",r$parcelle,"----------")
     message("------------------------------------------------------")
@@ -155,61 +196,64 @@ app_server <- function( input, output, session ) {
     leafletProxy("map",session) %>%
       clearGroup("parcelle_active")%>%
       addPolygons(data=p,color="red",fill=FALSE,group = "parcelle_active") %>% 
-      fitBounds(bb[1]-0.001,bb[2]-0.001,bb[3]+0.001,bb[4]+0.001)
+      fitBounds(bb[1]-0.0003,bb[2]-0.0003,bb[3]+0.0003,bb[4]+0.0003)
     
     pro <- r$data %>%
       filter(parcelle %in% r$parcelle)
     
-    if(r$mode=="proprietaire"){
+    if(pro$proprietaire=="?"){
       
-      if(pro$proprietaire=="?"){
-        isolate(updateRadioGroupButtons(session,"is_proprio",selected = "non"))
-        isolate(updateNumericInput(session,"coeff_val",value = 1))
+      # parcelle sans propriétaire
+      
+      isolate(updateRadioGroupButtons(session,"is_proprio",selected = "non"))
+      (updateNumericInput(session,"coeff_val",value = 1))
+      shinyjs::disable("coeff_val")
+    }else if(pro$proprietaire != r$user){
+      
+      # parcelle propriété d'un autre uilisteur
+      
+      output$info_autre_proprio <- renderUI({
+        if(pro$echangeable[1] & pro$a_vendre[1]) x <- "la vendre"
+        if(pro$echangeable[1] & !pro$a_vendre[1]) x <- "l'echanger"
+        if(!pro$echangeable[1] & !pro$a_vendre[1]) x <- "la conserver"
+        HTML(paste0(
+          "Cette parcelle a été déclarée par un autre propriétaire. Il soutaite ",
+          "<a style='color=red'>",x,"</a>"
+        ))
+        
+        updateNumericInput(session,"coeff_val",value =  round(weighted.mean(pro$coeff_valeur, pro$surface),1))
         shinyjs::disable("coeff_val")
-      }else if(pro$proprietaire != r$user){
-        output$info_autre_proprio <- renderUI({
-          if(pro$echangeable[1] & pro$a_vendre[1]) x <- "la vendre"
-          if(pro$echangeable[1] & !pro$a_vendre[1]) x <- "l'echanger"
-          if(!pro$echangeable[1] & !pro$a_vendre[1]) x <- "la conserver"
-          HTML(paste0(
-            "Cette parcelle a été déclarée par un autre propriétaire. Il soutaite ",
-            "<a style='color=red'>",x,"</a>"
-          ))
-          isolate(updateNumericInput(session,"coeff_val",value = pro$coeff_valeur[1]))
-          shinyjs::disable("coeff_val")
-          
-        })
         
-        if(pro$new_proprietaire %in% c("personne",r$user)){
-          # showElement("is_interesse")
-          # hideElement("is_prise")
-          if(pro$new_proprietaire == r$user){
-            ii <- "oui"
-          }else{
-            ii <- "non"
-          }
-          isolate(updateRadioGroupButtons(session,"is_interesse",selected = ii))
-          isolate(updateNumericInput(session,"coeff_val",value = pro$coeff_valeur[1]))
-          shinyjs::disable("coeff_val")
-          
-        }
+      })
+      
+      inter <- read_interet() %>% 
+        filter(parcelle %in% r$parcelle & interet == r$user)
+      
+      if(nrow(inter)>0){
+        ii <- "oui"
       }else{
-        
-        if(pro$echangeable[1] & pro$a_vendre[1]) x <- "vend"
-        if(pro$echangeable[1] & !pro$a_vendre[1]) x <- "echange"
-        if(!pro$echangeable[1] & !pro$a_vendre[1]) x <- "garde"
-        showElement("est_proprio")
-        
-        isolate(updateRadioGroupButtons(session,"is_proprio",selected = 'oui'))
-        isolate(updateRadioGroupButtons(session,"choix_proprio",selected = x))
-        isolate(updateNumericInput(session,"coeff_val",value = pro$coeff_valeur[1]))
-        shinyjs::enable("coeff_val")
-        
-        showElement("proprio")
-        hideElement("autre_proprio")
+        ii <- "non"
       }
+      isolate(updateRadioGroupButtons(session,"is_interesse",selected = ii))
+      (updateNumericInput(session,"coeff_val",value = pro$coeff_valeur[1]))
+      shinyjs::disable("coeff_val")
+      
     }else{
       
+      # proriété de l'utilisteur
+      
+      if(pro$echangeable[1] & pro$a_vendre[1]) x <- "vend"
+      if(pro$echangeable[1] & !pro$a_vendre[1]) x <- "echange"
+      if(!pro$echangeable[1] & !pro$a_vendre[1]) x <- "garde"
+      showElement("est_proprio")
+      
+      isolate(updateRadioGroupButtons(session,"is_proprio",selected = 'oui'))
+      isolate(updateRadioGroupButtons(session,"choix_proprio",selected = x))
+      (updateNumericInput(session,"coeff_val",value = pro$coeff_valeur[1]))
+      shinyjs::enable("coeff_val")
+      
+      showElement("proprio")
+      hideElement("autre_proprio")
     }
     
     affiche_controles (r,input,output,session)
@@ -224,9 +268,9 @@ app_server <- function( input, output, session ) {
     
     if(nrow(p)==0){
       HTML("")
-    }else if(p$proprietaire == "?"){
+    }else if(all(p$proprietaire == "?")){
       HTML("Personne n'a encore inscrit cette parcelle")
-    } else if(p$proprietaire == r$user){
+    } else if(all(p$proprietaire == r$user)){
       int <- unique(read_interet() %>% filter(parcelle %in% r$parcelle) %>% pull(interet))
       if(length(int)==0) {
         i <- "Personne n'a déclaré être intéressé"
@@ -272,7 +316,7 @@ app_server <- function( input, output, session ) {
     
     
   })
-
+  
   # affectation des parcelles mode proprietaire-----------------------------------------------
   
   observeEvent(input$is_proprio,ignoreNULL = TRUE,handlerExpr = {
@@ -283,18 +327,32 @@ app_server <- function( input, output, session ) {
     
     req(r$update);
     req(r$parcelle)
+    r$update <- FALSE
+    
     message("event input$is_proprio ...")
     pro <- read_proprietaire()
     
     if(input$is_proprio == "oui"){
+      
+      # je suis propriétaire ........................................
+      
       shinyjs::enable("coeff_val")
       if(r$parcelle %in% pro$parcelle){
+        
+        # je l'avais déjà déclaré ................................
+        
         pro$proprietaire[pro$parcelle %in% r$parcelle] <- r$user
       }else{
+        
+        # je me déclare propriétaire ................................
+        
         pro <- rbind(pro,
                      c(parcelle=r$parcelle,parcelle_groupe=NA,proprietaire=r$user,
-                       echangeable=TRUE,a_vendre=FALSE,
-                       new_proprietaire="personne",coeff_valeur=1))
+                       echangeable=FALSE,a_vendre=FALSE,
+                       # new_proprietaire="personne",
+                       coeff_valeur=1))
+        isolate(updateRadioGroupButtons(session,"choix_proprio",selected = "garde"))
+        
       }
       write_proprietaire(pro)
       r$bounds <- input$map_bounds
@@ -303,38 +361,49 @@ app_server <- function( input, output, session ) {
       r <- update_data(r,input,output,session,FALSE)
       affiche_controles (r,input,output,session)
     }else{
-      int <- read_interet() %>% filter(parcelle %in% r$parcelle) %>% pull(interet)
-      if(length(int)>0 & input$is_proprio == "non"){
+      
+      # je ne suis pas propriétaire .................................
+      
+      int <- read_interet() %>% filter(parcelle %in% r$parcelle)
+      if(nrow(int)>0 & input$is_proprio == "non"){
         
-        showNotification(paste0("Des propriétaires se sont déclarés intéressés par cette parcelle. Si vous souhaitez vraiment retirer cette parcelle ou modifier son mode de session, merci d'écrire à <a href='mailto:",r$admin$mail,"'>",r$admin$mail,"</a>"),
-                         type = "error",duration = 20)
-      }else{
+        # non, je me suis trompé, mais entre temps, d'autres se sont déclarés intéressés .....................................
         
-        pro <- pro %>% filter(! parcelle %in% r$parcelle)
-        write_proprietaire(pro)
-        r$bounds <- input$map_bounds
-        r$map_groups <- input$map_groups
+        notification(int)
+        showNotification(paste0("Des propriétaires se sont déclarés intéressés par cette parcelle. Ils recevront une notification les informant du changement."),
+                         type = "warning",duration = 20)
         
-        r <- update_data(r,input,output,session,FALSE)
-        affiche_controles (r,input,output,session)
-        
+        int <- read_interet() %>% 
+          filter(!parcelle %in% r$parcelle)
+        write_interet(int)
       }
       
+      # non, je me suis trompé, ùais c'est sans conséquence .....................................
+      
+      pro <- pro %>% filter(! parcelle %in% r$parcelle)
+      write_proprietaire(pro)
+      r$bounds <- input$map_bounds
+      r$map_groups <- input$map_groups
+      
+      r <- update_data(r,input,output,session,FALSE)
       affiche_controles (r,input,output,session)
+      
     }    
+    r$update <- TRUE
   })
   
   observeEvent(input$choix_proprio,ignoreInit = FALSE,handlerExpr = {
+    
     req(r$update);
     req(r$parcelle)
-    
+    r$update <- FALSE
     message("------------------------------------------------------")
     message("choix propriétaire:--------------",input$choix_proprio,"----------")
     message("------------------------------------------------------")
     
     message("event input$choix_proprio ...")
     freezeReactiveValue(input, "groupe")
-
+    
     req( r$data %>% filter(parcelle %in% r$parcelle) %>% pull(proprietaire) == r$user)
     
     pro <- pro1 <- read_proprietaire()
@@ -352,33 +421,39 @@ app_server <- function( input, output, session ) {
       pro$a_vendre[pro$parcelle %in% r$parcelle] <- FALSE
     }
     
-    int <- read_interet() %>% filter(parcelle %in% r$parcelle) %>% pull(interet)
-    if(length(int)>0 &
+    int <- read_interet() %>% filter(parcelle %in% r$parcelle)
+    if(nrow(int)>0 &
        (pro$echangeable[pro$parcelle %in% r$parcelle] != pro1$echangeable[pro$parcelle %in% r$parcelle] |
         pro$a_vendre[pro$parcelle %in% r$parcelle] != pro1$a_vendre[pro$parcelle %in% r$parcelle]
        )){
+      notification(int)      
+      showNotification(paste0("Des propriétaires se sont déclarés intéressés par cette parcelle. Ils recevront une notification les informant du changement."),
+                       type = "warning")
       
-      showNotification(paste0("Des propriétaires se sont déclarés intéressés par cette parcelle. Si vous souhaitez vraiment retirer cette parcelle ou modifier son mode de session, merci d'écrire à ",r$admin$mail),
-                       type = "error",duration = 20)
-    }else{
-      write_proprietaire(pro)
-      r$bounds <- input$map_bounds
-      r <- update_data(r,input,output,session,FALSE)
-      
-      affiche_controles (r,input,output,session)
+      int <- read_interet() %>% 
+        filter(!parcelle %in% r$parcelle)
+      write_interet(int)
     }
+    write_proprietaire(pro)
+    r$bounds <- input$map_bounds
+    r <- update_data(r,input,output,session,FALSE)
+    
+    affiche_controles (r,input,output,session)
+    r$update <- TRUE
+    
   })
   
   observeEvent(input$is_interesse,ignoreNULL = TRUE,handlerExpr = {
     req(r$update);
     req(r$parcelle)
     
+    r$update <- FALSE
     message("------------------------------------------------------")
     message("est interesse:--------------",input$is_interesse,"----------")
     message("------------------------------------------------------")
     message("event input$is_interesse ...")
     int <- read_interet()
-    freezeReactiveValue(input, "groupe")
+    # freezeReactiveValue(input, "groupe")
     
     if(input$is_interesse == "oui"){
       int <- rbind(int,
@@ -397,15 +472,15 @@ app_server <- function( input, output, session ) {
     r <- update_data(r,input,output,session,FALSE)
     
     affiche_controles (r,input,output,session)
+    r$update <- TRUE
     
   })
   
   observeEvent(input$coeff_val,{
     
-    invalidateLater(1000, session)
     req(r$update);
     req(r$parcelle)
-    
+    # invalidateLater(100)
     message("------------------------------------------------------")
     message("coeff valeur:--------------",input$coeff_val,"----------")
     message("------------------------------------------------------")
@@ -415,10 +490,11 @@ app_server <- function( input, output, session ) {
     freezeReactiveValue(input, "groupe")
     
     pro <- read_proprietaire()
-    pro$coeff_valeur[pro$parcelle %in% r$parcelle] <- as.character(input$coeff_val)
+    pro$coeff_valeur[pro$parcelle %in% r$parcelle] <- input$coeff_val
     write_proprietaire(pro)
     r <- update_data(r,input,output,session,FALSE)
     message("event input$coeff_val OK")
+    
   })
   
   # groupes -----------------------------------------------------------------
@@ -449,7 +525,6 @@ app_server <- function( input, output, session ) {
     # p <- r$data %>% filter(parcelle %in% r$parcelle)
     
     # req(r$user == p$proprietaire)
-    
     
     message("------------------------------------------------------")
     message("-------------------acces groupe------------------------")
@@ -494,11 +569,11 @@ app_server <- function( input, output, session ) {
     )
   })
   
-
-# contact -----------------------------------------------------------------
-
+  
+  # contact -----------------------------------------------------------------
+  
   observeEvent(input$contact,{
-   
+    
     
     callModule(mod_contact_proprio_server, "mod",r)
     showModal(
@@ -506,10 +581,10 @@ app_server <- function( input, output, session ) {
     )
     
   })
-
-
-# aide --------------------------------------------------------------------
-
+  
+  
+  # aide --------------------------------------------------------------------
+  
   observeEvent(input$help,{
     showModal(
       modalDialog(

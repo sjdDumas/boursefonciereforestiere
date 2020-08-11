@@ -79,6 +79,10 @@ read_proprietaire <- function(){
   db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
   p <- dbReadTable(db,'proprietaire')
   
+  # p <- left_join(p,read_interet()) %>% 
+  #   mutate(new_proprietaire = interet) %>% 
+  #   select(-interet)
+  
   p <- p[,!colnames(p) %in% c("couleur_proprietaire","mail","valide","psw")]
   i <- read_identite()
   ia <- ib <- i
@@ -86,6 +90,8 @@ read_proprietaire <- function(){
   p <- p %>% left_join(ia)
   p$echangeable <- as.logical(p$echangeable)
   p$a_vendre <- as.logical(p$a_vendre)
+  
+  p <- p[,colnames(p) != "new_proprietaire"]
   dbDisconnect(db)
   return(p)
 }
@@ -119,6 +125,10 @@ read_interet <- function(){
 write_proprietaire <- function(pr){
   path <- get_path()
   db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+  p <- dbReadTable(db,'proprietaire')
+  pr <- pr[,colnames(pr) %in% colnames(p)]
+  pr$new_proprietaire <- rep("personne",nrow(pr))
+  pr <- pr[which(! duplicated(pr$parcelle)),]
   dbWriteTable(db,'proprietaire',pr,overwrite = TRUE,
                field.types=c(parcelle="character",parcelle_groupe="character",
                              proprietaire="character",echangeable="logical",a_vendre="logical",
@@ -138,6 +148,8 @@ write_proprietaire <- function(pr){
 write_interet <- function(pr){
   path <- get_path()
   db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+  id <- paste(pr$parcelle,pr$interet)
+  pr <- pr[which(!duplicated(id)),]
   dbWriteTable(db,'interet',pr,overwrite = TRUE)
   dbDisconnect(db)
 }
@@ -145,21 +157,38 @@ write_interet <- function(pr){
 
 #' lecture base de donnée identite
 #'
+#' @param inv si TRUE, retourne aussi les inscriptions non validées
+#'
 #' @return data frame
 #' @export
 #' 
 #' import RSQLite
 #' import DBI
 #'
-read_identite <- function(){
+read_identite <- function(inv=FALSE){
   path <- get_path()
   db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
-  p <- dbReadTable(db,'identite')%>%filter(valide==1)
+  p <- dbReadTable(db,'identite')
+  if(inv==FALSE)
+   p <- p %>% filter(valide==1)
   dbDisconnect(db)
   return(p)
 }
 
-
+#' écrit base de donnée identite
+#'
+#' @return data frame
+#' @export
+#' 
+#' import RSQLite
+#' import DBI
+#'
+write_identite <- function(id){
+  path <- get_path()
+db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+dbWriteTable(db,'identite',id,overwrite = TRUE)
+dbDisconnect(db)
+}
 
 #' mise à jour de r$data
 #'
@@ -179,6 +208,7 @@ read_identite <- function(){
 update_data <- function(r,input,output,session,ini=FALSE){
   
   data <- r$par %>% left_join(read_proprietaire())
+  
   data$proprietaire[is.na(data$proprietaire)] <- "?"
   data$couleur_proprietaire[is.na(data$couleur_proprietaire)] <- "#ffffffff"
   data$echangeable[is.na(data$echangeable)] <- FALSE
@@ -190,21 +220,23 @@ update_data <- function(r,input,output,session,ini=FALSE){
   if(ini){
     
     m <- leaflet()%>%
-      addProviderTiles("GeoportailFrance.orthos",group = "ortho",options = tileOptions(minZoom = 12, maxZoom = 20))%>% 
+      addTiles(group = "N&B",options = tileOptions(opacity = 0,minZoom = 12, maxZoom = 20)) %>%      
+      addProviderTiles("GeoportailFrance.orthos",group = "photo",options = tileOptions(minZoom = 12, maxZoom = 20))%>% 
       addProviderTiles("GeoportailFrance.ignMaps",group = "carte",options = tileOptions(minZoom = 12, maxZoom = 20))%>% 
-      addTiles(group = "N&B",options = tileOptions(opacity = 0,minZoom = 12, maxZoom = 20)) %>%
       addPolygons(data=r$data,weight = 1,smoothFactor = 0,opacity = 1,
                   label = htmlEscape(r$data$etiquette),
                   fillColor = fillcolor(r), fillOpacity = .5,
                   group = "parcelles",layerId = r$data$parcelle) %>% 
+      hideGroup(c("carte","photo")) %>%
       leaflet::addControl(paste0(
         "<div style='background-color: #ffffff;border-radius:5px;padding:5px;margin:-10px;font-size: 10px;'>",
         "<h4>Légende</h4>",
         "<div><span style='width:50px;height:20px;color:white;border-radius:3px;border:3px solid red; margin-left:5px;margin-right:5px;'>...</span>parcelle sélectionnée</div>",
         
-        "<div><span style='width:50px;height:20px;color:white;border-radius:3px;border:1px solid #000; background-color:yellow; margin-left:5px;margin-right:5px;'>....</span><b>Vos parcelles</b></div>",
+        "<div><span style='width:50px;height:20px;color:white;border-radius:3px;border:1px solid #0000ff; background-color:yellow; margin-left:5px;margin-right:5px;'>....</span><b>Vos parcelles</b></div>",
         "<img style='width:15px;height:15px; margin-left:5px;margin-right:5px;' src='www/echange.png'>proposée à l'échange</img><br>",
         "<img style='width:15px;height:15px; margin-left:5px;margin-right:5px;' src='www/vend.png'>proposée à la vente</img><br>",
+        "<img style='width:15px;height:15px; margin-left:5px;margin-right:5px;' src='www/preneur.png'>... intéresse quelqu'un</img><br>",
         "<b>Les autres propriétés</b><br>",
         "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='www/personne.png'>disponible à l'échange</img><br>",
         "<img style='width:50px;height:50px;margin-bottom:-25px; margin-left:-15px;margin-right:-15px;' src='www/interesse.png'>... qui vous intéresse</img><br>",
@@ -228,7 +260,7 @@ update_data <- function(r,input,output,session,ini=FALSE){
       )
     }
     # clearGroup("parcelle_active")%>%
-    m <- m %>% addLayersControl(baseGroups = c("carte","ortho","N&B"),overlayGroups = 'parcelles',
+    m <- m %>% addLayersControl(baseGroups = c("N&B","carte","photo"),overlayGroups = 'parcelles',
                                 options = layersControlOptions(collapsed = FALSE)) 
     # hideGroup( c("carte","ortho","N&B")) %>%
     # showGroup(r$map_groups)
@@ -301,13 +333,8 @@ zoom_parcelle <- function(input,output,session,r){
 #' 
 fillcolor <- function(r){
   
-  if(r$mode=="proprietaire"){
-    fc <- rep("#ffffff",nrow(r$data))
-    fc[r$data$proprietaire == r$user] <- "yellow"
-    
-  }else{
-    fc <-  r$data$couleur_proprietaire
-  }
+  fc <- rep("#ffffff",nrow(r$data))
+  fc[r$data$proprietaire == r$user] <- "yellow"
   fc
 }
 
@@ -329,24 +356,36 @@ ico <- function(r){
     return(NULL)
   }
   
+  # intérêts de l'utilisateur
   int <- read_interet() %>% filter(interet == r$user)
   centro <- centro %>% left_join(int)
   
+  # intéret pour les parcelles de l'utilisateur
+  p_pro <- centro %>% filter(proprietaire == r$user) %>% pull(parcelle)
+  int <- read_interet() %>% filter(interet != r$user & parcelle %in% p_pro)
+  centro$preneur <- FALSE
+  centro$preneur[centro$parcelle %in% int$parcelle] <- TRUE
+  
   centro$size <- 20
-  if(r$mode=="proprietaire"){
-    centro$size[(centro$proprietaire) != r$user] <- 80  
+  centro$size[(centro$proprietaire) != r$user] <- 80  
+  
+  ico <- centro$echangeable
+  ico[centro$proprietaire == r$user] <- "echange" 
+  ico[ico == "echange" & as.logical(centro$a_vendre)] <- "vend" 
+  ico[!is.na(centro$interet)] <- "interesse"
+  ico[ico == "interesse" & as.logical(centro$a_vendre)] <- "interesse_achat"
+  ico[ico=="TRUE"] <- "personne"
+  ico[ico == "personne" & as.logical(centro$a_vendre)] <- "personne_vente"
+  
+  centro_preneur <- centro %>% filter(preneur == TRUE)
+  if(nrow(centro_preneur)>0){
+    centro_preneur$size <- 25  
   }
-  if(r$mode=="proprietaire"){
-    ico <- centro$echangeable
-    ico[centro$proprietaire == r$user] <- "echange" 
-    ico[ico == "echange" & as.logical(centro$a_vendre)] <- "vend" 
-    ico[!is.na(centro$interet)] <- "interesse"
-    ico[ico == "interesse" & as.logical(centro$a_vendre)] <- "interesse_achat"
-    ico[ico=="TRUE"] <- "personne"
-    ico[ico == "personne" & as.logical(centro$a_vendre)] <- "personne_vente"
-  }else{
-    ico <- centro$new_proprietaire
-  }
+  
+  ico_preneur <- rep("preneur",nrow(centro_preneur))
+  
+  centro <- rbind(centro,centro_preneur)
+  ico <- c(ico,ico_preneur)
   list(centro=centro,ico=ico)
 }
 
@@ -371,52 +410,38 @@ affiche_controles <- function(r,input,output,session){
     filter(parcelle %in% r$parcelle)
   print(r$parcelle)
   
-  if(r$mode == "proprietaire"){
-    # mode proprietaie ...........................................
-    hideElement("reunion_proprietaires")
-    hideElement("echangeable")
-    
-    if(p$proprietaire == r$user){
-      hideElement("autre_proprio")
-      showElement("proprio")
-      showElement("is_proprio")
-      showElement("est_proprio")
-      # showElement("coeff_val")
-    }else if(p$proprietaire == "?"){
-      hideElement("autre_proprio")
-      showElement("proprio")
-      showElement("is_proprio")
-      hideElement("est_proprio")
-      # hideElement("coeff_val")
-    }else{ # autre proprietaire
+  
+  # mode proprietaie ...........................................
+  hideElement("reunion_proprietaires")
+  hideElement("echangeable")
+  
+  if(all(p$proprietaire == r$user)){
+    hideElement("autre_proprio")
+    showElement("proprio")
+    showElement("is_proprio")
+    showElement("est_proprio")
+    # showElement("coeff_val")
+  }else if(p$proprietaire == "?"){
+    hideElement("autre_proprio")
+    showElement("proprio")
+    showElement("is_proprio")
+    hideElement("est_proprio")
+    # hideElement("coeff_val")
+  }else{ # autre proprietaire
+    hideElement("proprio")
+    if(p$echangeable){
       showElement("autre_proprio")
-      hideElement("proprio")
-      # showElement("coeff_val")
-      # if(p$new_proprietaire == r$user | p$new_proprietaire == "personne"){
-      #   showElement("is_interesse")
-      #   hideElement("is_prise")
-      # }else{
-      #   hideElement("is_interesse")
-      #   showElement("is_prise")
-      # }
-    }
-  }else{
-    # mode réunion .................................
-    
-    if(p$proprietaire != "?" ){
-      showElement("echangeable")
-      if(p$echangeable==TRUE){
-        showElement("new_proprietaire")
-        # showElement("coeff_val")
-      }else{
-        hideElement("new_proprietaire")
-        # hideElement("coeff_val")
-      }
     }else{
-      hideElement("echangeable")
-      hideElement("new_proprietaire")
-      # hideElement("coeff_val")
+      hideElement("autre_proprio")
     }
+    # showElement("coeff_val")
+    # if(p$new_proprietaire == r$user | p$new_proprietaire == "personne"){
+    #   showElement("is_interesse")
+    #   hideElement("is_prise")
+    # }else{
+    #   hideElement("is_interesse")
+    #   showElement("is_prise")
+    # }
   }
 }
 
@@ -557,6 +582,62 @@ init_table_interet <- function(){
   
 }
 
+#' Création d'une notification pour l'utilisateur
+#'
+#' @param int table propriétaire avec uniquement les lignes les parcelles qui intéressent le destinataire et dont le propriétaire à modifié la destination.
+#'
+#' @return renseigne db notification
+#' @export
+#'
+notification <- function(int){
+  path <- get_path()
+  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+  on.exit(dbDisconnect(db))
+  
+  
+  for(i in unique(int$interet)){
+    
+    inti <- int %>% filter(interet == i)
+  
+    df <- data.frame(
+      proprietaire = i,
+      message = paste("Le propriétaire de la (des) parcelle(s)",
+                      paste(int$parcelle,collapse = ", "), 
+                      "pour laquelle vous aviez déclaré votre intérêt a opéré des modifications sur cet (ces) parcelles."
+      ),
+      affiche=TRUE,
+      stringsAsFactors = FALSE
+    )
+    
+    if("notification" %in%  dbListTables(db)){
+      df <- rbind(dbReadTable(db,"notification"))
+    }
+    dbWriteTable(db,"notification",df,overwrite=TRUE)
+    
+      
+  admin <- r$admin
+  dest <- read_identite() %>% 
+    filter(proprietaire == i) %>% 
+    pull(mail)
+  envoi <- try(send.mail(from = admin$mail,
+                         to = dest,
+                         subject = "changement de destination d'une parcelle",
+                         body =   paste0("Bonjour, \n",
+                                        df$message,
+                                        "\nNous vous invitons à consulter ses changements sur le site de la bourse: ",
+                                        r$admin$adresse, "\n\n",
+                                        "Bien cordialement,\n",r$admin$administrateur,", administrateur de la bourse foncière forestière"
+                         ),
+                         smtp = list(host.name = admin$host, port = admin$port_smtp, 
+                                     user.name = admin$username_smtp,            
+                                     passwd = admin$password_smtp, ssl = TRUE),
+                         authenticate = TRUE,
+                         debug = TRUE,
+                         send = TRUE))
+  
+  }
+}
+
 #' Réinitialisation de la table identite
 #'
 #' @return rien: écrit une sauvegarde de l'ancienne table au format rds, et écrit une nouvelle table vide.
@@ -575,7 +656,8 @@ init_table_identite <- function(){
                    psw = c("ERtdfg45ttt67"),
                    couleur_proprietaire=c("#ffffffff"),
                    mail = c(""),
-                   valide = c(1)
+                   valide = c(1),
+                   parcelle=""
   )
   db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
   dbWriteTable(db,'identite',id,overwrite = TRUE)
@@ -617,7 +699,7 @@ setup_parcelles <- function(path){
 get_path <- function(){
   # load(system.file("app/www/ini.RData",package = "boursefonciereforestiere"))
   # sub("\\$HOME",Sys.getenv("HOME"),ini$dir)
-  r$dir
+  readRDS("path.rds")
 }
 
 
@@ -685,7 +767,7 @@ admin_check <- function(){
   }
   
   check
-  }
+}
 
 #' Sauvegarde des données
 #' 
@@ -704,6 +786,23 @@ admin_backup <- function(){
   file.copy(file.path(path,"parcelles.rds"),new)
   
   message("Sauvegarde effectuée sous ",new)
+  
+  admin <- read.csv(file.path(path,"admin.csv"),stringsAsFactors = F)
+  
+  envoi <- try(send.mail(from = admin$mail,
+                         to = admin$mail,
+                         subject = "backup",
+                         body =   paste0("Sauvegarde: ", path,"\n",Sys.time()),
+                         attach.files = file.path(new,"db.sqlite"),
+                         smtp = list(host.name = admin$host, port = admin$port_smtp, 
+                                     user.name = admin$username_smtp,            
+                                     passwd = admin$password_smtp, ssl = TRUE),
+                         authenticate = TRUE,
+                         debug = TRUE,
+                         send = TRUE)
+  )
+  
+  
 }
 
 
@@ -714,11 +813,11 @@ admin_backup <- function(){
 #'
 admin_reset <- function(){
   admin_backup()
-    init_table_proprio()
-    init_table_interet()
-    init_table_identite()
-    
-    message("reset effectué")
+  init_table_proprio()
+  init_table_interet()
+  init_table_identite()
+  
+  message("reset effectué")
 }
 
 #' création objet r fictif pour debugage
