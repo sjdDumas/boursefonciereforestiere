@@ -14,7 +14,8 @@ admin(
   port_smtp = "",
   adresse = "",
   administrateur = "",
-  titre_administrateur = ""
+  titre_administrateur = "",
+  psw_admin = ""
 )
 }
 \arguments{

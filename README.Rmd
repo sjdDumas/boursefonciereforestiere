@@ -27,7 +27,7 @@ Placer dans un dossier vierge (par exemple './ma_bourse') le shapefile des parce
   - dont la table attributaire contient a minima les champs:  
     - **nom_com**: nom de la commune, au format texte  
     - **section**: code de la section, au format texte  
-    - **numero**: numéro de la parcelle, au format texte  
+    - **numero**: numéro de la parcelle, au format texte.  
   - ce shapefile peut par exemple être télécharger sous le logiciel QGIS, après inscription sur le site de l'IGN au géo-service WFS.  
   
 ## paramétrage  
