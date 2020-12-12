@@ -4,7 +4,7 @@
 \alias{write_proprietaire}
 \title{enregistre base de donnée proprietaire}
 \usage{
-write_proprietaire(pr)
+write_proprietaire(r)
 }
 \arguments{
 \item{pr}{table}

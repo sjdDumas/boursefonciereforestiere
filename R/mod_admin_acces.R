@@ -36,9 +36,9 @@ mod_admin_acces_server <- function(input, output, session){
     stopApp()
   })
   observeEvent(input$ok,{
-    ini <- readRDS(file.path(path,"ini.rds"))
+    admin <- read.csv(file.path(path,"admin.csv"),stringsAsFactors = F)
     
-    if(input$psw == ini$psw){
+    if(input$psw == admin$psw_admin){
       callModule(mod_admin_server,"mod")
       showModal(mod_admin_ui(ns("mod")))  
     }else{

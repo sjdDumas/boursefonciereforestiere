@@ -16,31 +16,31 @@ app_ui <- function(request) {
       )
       
     ),
-    tags$script(
-      "(function() {
-        var timeoutWarningMsecs = 120 * 1000;
-        var idleTimer;
-
-        function onTimeout() {
-          alert('Session supsendu pour cause d inactivité');
-        }
-
-        function startIdleTimer() {
-          if (idleTimer) clearTimeout(idleTimer);
-          idleTimer = setTimeout(onTimeout, timeoutWarningMsecs);
-        }
-
-        $(document).on('shiny:message shiny:inputchanged', startIdleTimer);
-
-      })();"
-    ),
+    # tags$script(
+    #   "(function() {
+    #     var timeoutWarningMsecs = 120 * 1000;
+    #     var idleTimer;
+    # 
+    #     function onTimeout() {
+    #       alert('Session supsendu pour cause d inactivité');
+    #     }
+    # 
+    #     function startIdleTimer() {
+    #       if (idleTimer) clearTimeout(idleTimer);
+    #       idleTimer = setTimeout(onTimeout, timeoutWarningMsecs);
+    #     }
+    # 
+    #     $(document).on('shiny:message shiny:inputchanged', startIdleTimer);
+    # 
+    #   })();"
+    # ),
     # Leave this function for adding external resources
     golem_add_external_resources(),
     # List the first level UI elements here 
     
       fluidPage( style = "background-color:#eeeeff",
             
-                 div(style="position:absolute;top:50vh;right:50vw", spin_epic("flower")),
+                 div(style="position:absolute;top:50vh;right:62vw", spin_epic("hollow-dots")),
                  
                  
                  fluidRow(style = "background-color:#ddddff; padding-left: 10px; margin-top: -10px;",
@@ -178,7 +178,6 @@ app_ui <- function(request) {
                  bsPopover("contact","Envoyer un mail à un propriétaire"),
                  bsTooltip("quit","Quitter"),
                  
-                 profvis::profvis_ui("profiler")
                  
       )
     )

@@ -13,16 +13,17 @@ mod_admin_ui <- function(id){
   ns <- NS(id)
   tagList(
     modalDialog(
-      title = "administration",
-      
-      column(8,
+      fluidRow(
+      h2("Administration"),
+        column(8,
              textOutput(ns("path"))       
       ),
       column(4,
              actionButton(ns("ok"),"Quitter")
+      )
       ),
       
-      br(),br(),
+      hr(),
       h4("Changer le mot de passe administrateur"),
       fluidRow(
       column(6,
@@ -32,7 +33,7 @@ mod_admin_ui <- function(id){
              actionBttn(ns("new_psw_ok"),"mettre à jour le mot de passe administrateur",size = "xs")
       )
       ),
-      br(),br(),br(),
+      hr(),
       
       h4("Comptes en attente de validation"),
       tableOutput(ns("a_valider")),
@@ -46,16 +47,24 @@ mod_admin_ui <- function(id){
       )
       ),
     
+      hr(),
+      h4("Comptes"),
+      tableOutput(ns("identites")),
+      
+      hr(),
+      h4("Saisies"),
+      tableOutput(ns("saisies")),
+      
       h4("Gestion de la base de données"),
       fluidRow(
       column(6,
-             actionBttn(ns("backup"),"Sauvegarder les données",size = "xs")
+             actionButton(ns("backup"),"Sauvegarder les données")
       ),
       column(6,
-              actionBttn(ns("init"),"Réinitiaiser les données",size = "xs")
+              actionButton(ns("init"),"Réinitiaiser les données")
       )
       ),
-      br(),br(),
+      
       htmlOutput(ns("check")),
       br(),
       footer = NULL
@@ -79,7 +88,7 @@ mod_admin_server <- function(input, output, session){
   
   
   observeEvent(input$new_psw_ok,{
-    ini <- list(psw=input$new_psw)
+    admin(psw_admin = input$new_psw)
     saveRDS(ini,file.path(path,"ini.rds"))
     showNotification("mot de passe mis à jour")
     
@@ -99,13 +108,28 @@ mod_admin_server <- function(input, output, session){
   
   output$a_valider <- renderTable({
     i <- read_identite(inv = TRUE) %>% filter(valide == 0) %>% 
-      select(-c(couleur_proprietaire,valide))
+      select(-c(valide))
     updateSelectInput(session,"login_a_valider",choices = i$proprietaire)
     i
   })
   
+  output$identites <- renderTable({
+    read_identite()
+  })
+  
+  output$saisies <- renderTable({
+    read_proprietaire() %>% 
+      left_join(readRDS(file.path(get_path(),"parcelles.rds")) %>% 
+                  select(parcelle,surface)) %>% 
+      group_by(proprietaire) %>% 
+      summarise(a_vendre = sum(a_vendre), a_echanger = sum(echangeable)-sum(a_vendre),
+                surf_a_vendre = sum(surface * a_vendre),
+                surf_a_echanger = sum(surface * echangeable) - sum(surface * a_vendre))
+  })
+  
   observeEvent(input$valider_ok,{
     
+    show_spinner("s")
     i <- read_identite(inv = TRUE)
     i$valide[i$proprietaire == input$login_a_valider] <- 1
     
@@ -137,7 +161,7 @@ mod_admin_server <- function(input, output, session){
       write_identite(i)
       showNotification(("login validé avec succès"))
     }
-    
+    hide_spinner("s")
   })
   
   output$check <- renderUI({

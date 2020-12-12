@@ -58,24 +58,25 @@ mod_groupe_server <- function(input, output, session,r){
   observeEvent(input$creer_groupe,ignoreInit = TRUE, handlerExpr = {
     r$update <- FALSE
     
-    pro <- read_proprietaire() %>%
+    r$data <- r$data %>%
       left_join(read_interet())
     
     pg <-  str_replace_all(input$choix_parcelles_groupe," ","_")
-    pro$parcelle_groupe[pro$parcelle %in% pg] <-
+    r$data$parcelle_groupe[r$data$parcelle %in% pg] <-
       paste(pg,collapse = "__")
     
-    ech <- pro$echangeable[pro$parcelle %in% pg]
-    ven <- pro$a_vendre[pro$parcelle %in% pg]
-    int <- pro %>% filter(parcelle %in% pg)
+    ech <- r$data$echangeable[r$data$parcelle %in% pg]
+    ven <- r$data$a_vendre[r$data$parcelle %in% pg]
+    int <- r$data %>% filter(parcelle %in% pg)
     
     if(length(unique(ech))>1 | length(unique(ven))>1){
+      browser()
       showNotification("Impossible de grouper des parcelles de destinations dfférentes. Modifiez d'abord la destnation de ces parcelles afin qu'eels soient toutes à échanger, à vendre ou à garder ")
     }else{
 
       if(length(unique(int$interet))>1){
         r$tmp <- list(
-          pro=pro,pg=pg,ech=ech,ven=ven,int=int
+          pg=pg,ech=ech,ven=ven,int=int
         )
         showModal(
           modalDialog(
@@ -87,18 +88,20 @@ mod_groupe_server <- function(input, output, session,r){
           )
         )
       }else{
-        mod_groupe_grouper(pro,pg,ech,ven,FALSE,input,output,session)
+        r <- mod_groupe_grouper(r,pg,ech,ven,FALSE,input,output,session)
       }
     }
     
   })
   
-  mod_groupe_grouper <- function(pro,pg,ech,ven,rm_int,input,output,session){    
+
+
+  mod_groupe_grouper <- function(r,pg,ech,ven,rm_int,input,output,session){    
     
-    pro$echangeable[pro$parcelle %in% pg] <- unique(ech)
-    pro$a_vendre[pro$parcelle %in% pg] <- unique(ven)
+    r$data$echangeable[r$data$parcelle %in% pg] <- unique(ech)
+    r$data$a_vendre[r$data$parcelle %in% pg] <- unique(ven)
     
-    write_proprietaire(pro)
+    write_proprietaire(r)
     r <- update_data(r,input,output,session,FALSE)
     
     if(rm_int){
@@ -107,14 +110,21 @@ mod_groupe_server <- function(input, output, session,r){
     write_interet(bdint)
     }
     removeModal()
+    
+    # r$data avait été joint avec bd interet: suppression jointure:
+    
+    r$data <- r$data %>% select(-interet) %>% 
+      filter(!duplicated(parcelle))
+    
     showNotification("Groupe créé avec succès")
     r$update <- TRUE
   
+    return(r)
   }
   
   observeEvent(input$ok_multi_inter,{
     
-    mod_groupe_grouper(r$tmp$pro,r$tmp$pg,r$tmp$ech,r$tmp$ven,TRUE,input,output,session)
+    r <- mod_groupe_grouper(r,r$tmp$pg,r$tmp$ech,r$tmp$ven,TRUE,input,output,session)
     probs <- na.omit(unique(r$tmp$int$interet))
     for(n in props){
       notification(r$tmp$int %>% filter(interet == n))
@@ -126,14 +136,19 @@ mod_groupe_server <- function(input, output, session,r){
   
   observeEvent(input$rm_groupe,ignoreInit = TRUE,handlerExpr = {
     r$update <- FALSE
-    
-    pro <- read_proprietaire()
     pg <-  str_replace_all(input$choix_rm_groupe," \\+ ","__")
     pg <- str_replace_all(pg," ","_")
+    r$data$parcelle_groupe[r$data$parcelle_groupe %in% pg] <- NA
     
-    pro$parcelle_groupe[pro$parcelle_groupe %in% pg] <- NA
+    write_proprietaire(r)
     
-    write_proprietaire(pro)
+    # pro <- read_proprietaire()
+    # pg <-  str_replace_all(input$choix_rm_groupe," \\+ ","__")
+    # pg <- str_replace_all(pg," ","_")
+    # 
+    # pro$parcelle_groupe[pro$parcelle_groupe %in% pg] <- NA
+    # 
+    # write_proprietaire(pro)
     removeModal()
     r <- update_data(r,input,output,session,FALSE)
     

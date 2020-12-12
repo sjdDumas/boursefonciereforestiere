@@ -19,6 +19,8 @@ mod_contact_proprio_ui <- function(id){
       textAreaInput(ns("text_mail_proprio"),"Ecrivez ici votre message:",width = "600px"),
       br(),
       actionBttn(ns("send_mail_proprio"),"Envoyer le mail au propriétaire sélectionné",size="xs"),
+  br(),
+      uiOutput(ns("contact")),
       
       footer = tagList(
         modalButton("Fermer")
@@ -73,6 +75,13 @@ mod_contact_proprio_server <- function(input, output, session, r){
     
     updateRadioGroupButtons(session,'contacts',selected = NULL)
     
+  })
+  
+  
+  output$contact <- renderUI({
+    tagList(
+      a("... ou cliquez ici pour contactez l'administrateur du site", href=paste0("mailto::",r$admin$mail))
+    )
   })
   
 }

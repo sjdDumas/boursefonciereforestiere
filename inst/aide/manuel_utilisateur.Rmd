@@ -2,15 +2,17 @@
 title: "Bourse d'Echange Foncière Forestière communale"
 author: "Stéphane Dumas"
 date: "24/07/2020"
-output:
-  md_document:
-    preserve_yaml: false
-    toc: true
+output: rmarkdown::html_vignette
+
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
 
-
+# output:
+#   md_document:
+#     variant: markdown_github
+#     preserve_yaml: false
+#     toc: true
 
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)

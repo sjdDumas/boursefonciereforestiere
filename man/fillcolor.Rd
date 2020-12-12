@@ -4,7 +4,7 @@
 \alias{fillcolor}
 \title{Couleurs de remplissage selon propriétaire}
 \usage{
-fillcolor(r)
+fillcolor(data, user)
 }
 \arguments{
 \item{r}{r}
