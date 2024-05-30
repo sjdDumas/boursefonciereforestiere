@@ -9,9 +9,6 @@ set_path(path)
 \arguments{
 \item{path}{chemin}
 }
-\value{
-
-}
 \description{
 Définir le chemin du dossier des données
 }

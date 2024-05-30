@@ -1,0 +1,2 @@
+"file","path","commune","parcelle_ini","mail","host","username_smtp","password_smtp","port_smtp","adresse","administrateur","titre_administrateur","psw_admin"
+"~/.boursefonciereforestiere_data/admin.csv","~/.boursefonciereforestiere_data","Bellechaume","Bellechaume_0B_0526","boursefonciereforestierebellechaume@laposte.net","smtp.laposte.net","boursefonciereforestierebellechaume@laposte.net","BFFbellechaume89?",993,"http://localhost:8080","Monsieur X","testeur","test"

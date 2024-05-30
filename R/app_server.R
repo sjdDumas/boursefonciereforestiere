@@ -6,7 +6,7 @@
 #' @import shinyBS
 #' @import stringr dplyr sf
 #' @noRd
-app_server <- function( input, output, session ) {
+app_server <- function( input, output, session, demo = FALSE) {
 
   tags$script('
               var shinyBS = {inputBindings: {}};
@@ -402,6 +402,10 @@ initialize: function(el) {
     }
     
   })
+
+  output$nom_commune <- renderUI({
+    paste("Bourse foncière forestière communale de ", r$admin$commune)
+  })
   
   # choix parcelle ----------------------------------------------------------
   
@@ -527,14 +531,14 @@ initialize: function(el) {
     pro <- r$data %>%
       filter(parcelle %in% r$parcelle)
     
-    if(pro$proprietaire=="?"){
+    if(pro$proprietaire[1]=="?"){
       
       # parcelle sans propriétaire
       
       isolate(updateRadioGroupButtons(session,"is_proprio",selected = "non"))
       (updateNumericInput(session,"coeff_val",value = 1))
       shinyjs::disable("coeff_val")
-    }else if(pro$proprietaire != r$user){
+    }else if(pro$proprietaire[1] != r$user){
       
       # parcelle propriété d'un autre uilisteur
       
@@ -594,7 +598,7 @@ initialize: function(el) {
     
     if(nrow(p)==0){
       HTML("")
-    }else if(all(p$proprietaire == "?")){
+    }else if(all(p$proprietaire[1] == "?")){
       HTML("Personne n'a encore inscrit cette parcelle")
     } else if(all(p$proprietaire == r$user)){
       int <- unique(read_interet() %>% filter(parcelle %in% r$parcelle) %>% pull(interet))
@@ -654,7 +658,7 @@ initialize: function(el) {
     message("event input$is_proprio ...")
     # pro <- read_proprietaire()
     
-    if(input$is_proprio == "oui"){
+    if(input$is_proprio[1] == "oui"){
       
       # je suis propriétaire ........................................
       
@@ -686,7 +690,7 @@ initialize: function(el) {
       # je ne suis pas propriétaire .................................
       
       int <- read_interet() %>% filter(parcelle %in% r$parcelle)
-      if(nrow(int)>0 & input$is_proprio == "non"){
+      if(nrow(int)>0 & input$is_proprio[1] == "non"){
         
         # non, je me suis trompé, mais entre temps, d'autres se sont déclarés intéressés .....................................
         
@@ -730,13 +734,13 @@ initialize: function(el) {
     
     pro <- pro1 <- read_proprietaire()
     
-    if(input$choix_proprio == "vend"){
+    if(input$choix_proprio[1] == "vend"){
       r <- modif_parcelle(r,ech=TRUE,ven = TRUE)
     }
-    if(input$choix_proprio == "echange"){
+    if(input$choix_proprio[1] == "echange"){
       r <- modif_parcelle(r,ech=TRUE,ven = FALSE)
     }
-    if(input$choix_proprio == "garde"){
+    if(input$choix_proprio[1] == "garde"){
       r <- modif_parcelle(r,ech=FALSE,ven = FALSE)
     }
     
@@ -744,7 +748,7 @@ initialize: function(el) {
     pro_avant <- read_proprietaire()
     
     if(nrow(int)>0 &
-       (r$data$echangeable[r$data$parcelle %in% r$parcelle] != pro_avant$echangeable[r$data$parcelle %in% r$parcelle] |
+       any(r$data$echangeable[r$data$parcelle %in% r$parcelle] != pro_avant$echangeable[r$data$parcelle %in% r$parcelle] |
         r$data$a_vendre[r$data$parcelle %in% r$parcelle] != pro_avant$a_vendre[r$data$parcelle %in% r$parcelle]
        )){
       notification(int)      
@@ -776,7 +780,7 @@ initialize: function(el) {
     int <- read_interet()
     # freezeReactiveValue(input, "groupe")
     
-    if(input$is_interesse == "oui"){
+    if(input$is_interesse[1] == "oui"){
       int <- rbind(int,
                    data.frame(parcelle = r$parcelle,
                               interet = rep(r$user,length(r$parcelle)),

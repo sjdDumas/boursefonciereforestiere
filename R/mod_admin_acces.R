@@ -36,7 +36,7 @@ mod_admin_acces_server <- function(input, output, session){
     stopApp()
   })
   observeEvent(input$ok,{
-    admin <- read.csv(file.path(path,"admin.csv"),stringsAsFactors = F)
+    admin <- read.csv(file.path(get_path(),"admin.csv"),stringsAsFactors = F)
     
     if(input$psw == admin$psw_admin){
       callModule(mod_admin_server,"mod")

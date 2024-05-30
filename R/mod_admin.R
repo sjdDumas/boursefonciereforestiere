@@ -82,14 +82,14 @@ mod_admin_server <- function(input, output, session){
   
   observe({
     
-    output$path <- renderText(paste("dossier de la base SQLITE:", path))
+    output$path <- renderText(paste("dossier de la base SQLITE:", get_path()))
     
   })
   
   
   observeEvent(input$new_psw_ok,{
     admin(psw_admin = input$new_psw)
-    saveRDS(ini,file.path(path,"ini.rds"))
+    saveRDS(ini,file.path(get_path(),"ini.rds"))
     showNotification("mot de passe mis à jour")
     
   })
@@ -133,7 +133,7 @@ mod_admin_server <- function(input, output, session){
     i <- read_identite(inv = TRUE)
     i$valide[i$proprietaire == input$login_a_valider] <- 1
     
-    admin <- read.csv(file.path(path,"admin.csv"),stringsAsFactors = F)
+    admin <- read.csv(file.path(get_path(),"admin.csv"),stringsAsFactors = F)
     
     dest <- i$mail[i$proprietaire == input$login_a_valider]
     envoi <- try(send.mail(from = admin$mail,

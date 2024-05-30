@@ -16,7 +16,8 @@
 #' @export
 #'
 
-admin <- function(commune = "",
+admin <- function(path = get_path(),
+                  commune = "",
                   parcelle_ini = "",
                   mail = "",
                   host = "",
@@ -27,8 +28,7 @@ admin <- function(commune = "",
                   administrateur = "",
                   titre_administrateur = "",
                   psw_admin = ""){
-  path <- get_path()
-
+  
   file <- file.path(path,"admin.csv")
   if(file.exists(file)){
     a <- read.csv(file.path(path,"admin.csv"),stringsAsFactors = F)  
@@ -209,15 +209,21 @@ r_ini <- function(r){
   # load(system.file("app/www/ini.RData",package = "boursefonciereforestiere"))
   
   # r$dir <- sub("\\$HOME",Sys.getenv("HOME"),ini$dir)
-  r$dir <- path
-  saveRDS(path, "path.rds")
+  r$dir <- get_path()
+  # saveRDS(path, "path.rds")
   
   r$admin <- read.csv(file.path(r$dir,"admin.csv"),stringsAsFactors = F)
-  r$par = readRDS(file.path(r$dir,"parcelles.rds")) %>% 
+  
+  pth_p <- file.path(r$dir,"parcelles.rds")
+  
+  if(!file.exists(pth_p))
+    setup_parcelles(r$dir)
+  
+  r$par = readRDS(pth_p) %>% 
     select(parcelle,etiquette,surface,numero,section,nom_com)
   r$parcelle <- r$admin$parcelle_ini #"Cheny_0A_0203"
   
-  db <- dbConnect(RSQLite::SQLite(), file.path(path,"db.sqlite"))
+  db <- dbConnect(RSQLite::SQLite(), file.path(r$dir,"db.sqlite"))
   p <- dbReadTable(db,'proprietaire')
   dbDisconnect(db)
   
@@ -266,14 +272,25 @@ update_data <- function(r,input,output,session,ini=FALSE){
   
   if(ini){
     
-    m <- leaflet()%>%
-      addTiles(group = "N&B",options = tileOptions(opacity = 0,minZoom = 12, maxZoom = 20)) %>%      
-      addProviderTiles("GeoportailFrance.orthos",group = "photo",options = tileOptions(minZoom = 12, maxZoom = 20))%>% 
-      addProviderTiles("GeoportailFrance.ignMaps",group = "carte",options = tileOptions(minZoom = 12, maxZoom = 20))%>% 
-      addPolygons(data=r$data,weight = 1,smoothFactor = 0,opacity = 1,
+    m <-
+      
+      leaflet()%>%
+      addWMSTiles("https://data.geopf.fr/wms-r?SERVICE=WMS",
+                  layers = "ORTHOIMAGERY.ORTHOPHOTOS.IRC", group = "Infrarouge",
+                  options = WMSTileOptions(format = "image/png", transparent = TRUE,
+                                           version = "1.3.0", maxZoom = 22)) %>%
+      addWMSTiles("https://data.geopf.fr/wms-r?SERVICE=WMS",
+                  layers = "ORTHOIMAGERY.ORTHOPHOTOS", group = "photo",
+                  options = WMSTileOptions(format = "image/png", transparent = TRUE,
+                                           version = "1.3.0", maxZoom = 22)) %>%
+        addWMSTiles("https://data.geopf.fr/wms-r?SERVICE=WMS",
+                    layers = "GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2", group = "carte",
+                    options = WMSTileOptions(format = "image/png", transparent = TRUE,
+                                             version = "1.3.0", maxZoom = 22)) %>%
+      addPolygons(data=r$data %>% st_transform(4326),weight = 1,smoothFactor = 0,opacity = 1,
                   label = htmlEscape(r$data$etiquette),
                   fillColor = fillcolor(r$data,r$user), fillOpacity = .5,
-                  group = "parcelles",layerId = r$data$parcelle) %>% 
+                  group = "parcelles",layerId = r$data$parcelle) %>%  
       hideGroup(c("carte","photo")) %>%
       leaflet::addControl(paste0(
         "<div style='background-color: #ffffff;border-radius:5px;padding:5px;margin:-10px;font-size: 10px;'>",
@@ -307,14 +324,14 @@ update_data <- function(r,input,output,session,ini=FALSE){
       )
     }
     # clearGroup("parcelle_active")%>%
-    m <- m %>% addLayersControl(baseGroups = c("N&B","carte","photo"),overlayGroups = 'parcelles',
+    m <- m %>% addLayersControl(baseGroups = c("Infrarouge","carte","photo"),overlayGroups = 'parcelles',
                                 options = layersControlOptions(collapsed = FALSE)) 
-    # hideGroup( c("carte","ortho","N&B")) %>%
+    # hideGroup( c("carte","ortho","Infrarouge")) %>%
     # showGroup(r$map_groups)
     bb <- as.numeric(st_bbox(r$data))
     
     m  %>%
-      addPolygons(data=r$par %>% filter(parcelle %in% r$parcelle),
+      addPolygons(data=r$par %>% filter(parcelle %in% r$parcelle)%>% st_transform(4326),
                   color="yellow",fill=FALSE,layerId = "parcelle_active") %>%
       setMaxBounds(bb[1],bb[2],bb[3],bb[4])
     
@@ -325,7 +342,7 @@ update_data <- function(r,input,output,session,ini=FALSE){
     
     leafletProxy("map",session) %>%
       removeShape(new$parcelle) %>%
-      addPolygons(data = new,weight = 1,smoothFactor = 0,opacity = 1,
+      addPolygons(data = new %>% st_transform(4326),weight = 1,smoothFactor = 0,opacity = 1,
                   label = htmlEscape(new$etiquette),
                   fillColor = fillcolor(new, r$user), fillOpacity = .5,
                   group = "parcelles",layerId = new$parcelle) %>%
@@ -716,7 +733,8 @@ init_table_identite <- function(){
 #' @importFrom stringr str_remove
 #' 
 setup_parcelles <- function(path){
-  p <- st_read(file.path(path,"BDPARCELLE.shp"))
+  p <- st_read(file.path(path,"BDPARCELLE.shp")) %>%
+    st_transform(4326)
   
   ck <- list()
   for(f in c("nom_com","section","numero")){
@@ -743,7 +761,56 @@ setup_parcelles <- function(path){
 get_path <- function(){
   # load(system.file("app/www/ini.RData",package = "boursefonciereforestiere"))
   # sub("\\$HOME",Sys.getenv("HOME"),ini$dir)
-  readRDS("path.rds")
+  # readRDS("path.rds")
+  path = "~/.boursefonciereforestiere_data"
+  
+  if(!dir.exists(path)){
+    dir.create(path)
+  }
+
+  if(!file.exists(file.path(path, "BDPARCELLE.shp"))){
+    rep <- rstudioapi::showQuestion("Shapefile des parcelles cadastrales",
+                     "Veuillez sélectionner le fichier .shp des parcelles cadatrales forestières de la commune.",
+                     "Sélectionner", "Abandonner")
+    if(!rep){stop("Abandon")}
+    shp <- file.choose()
+    files <- paste0(str_remove(shp, ".shp"),
+                    c(".shp", ".dbf", ".shx", ".prj")) %>%
+      sort()
+    
+    if(any(!file.exists(files))){
+      stop("shapefile invalide: manque ", 
+           paste(files[which(!file.exists(files))], collapse = ", "))
+    }
+    
+    file.copy(sort(files), path)
+    
+    file.rename(file.path(path, basename(files)),
+              file.path(
+                path,
+                paste0("BDPARCELLE.",
+                       c("dbf", "prj", "shp", "shx"))
+                )
+    )
+  }  
+  
+  if(!file.exists(file.path(path, "parcelles.rds")))
+    boursefonciereforestiere::setup_parcelles(path)
+  
+  if(!file.exists(file.path(path, "admin.csv"))){
+    
+    rep <- rstudioapi::showQuestion("configuration", 
+                                    "Fichier de configuration admin.csv absent.",
+                                    "Importer un fichier", "configurer manuellement avec la fonction admnin()")
+    if(!rep){stop("Config manuelle: admin(...)")}
+    
+    csv <- file.choose()
+    file.copy(csv, file.path(path, "admin.csv"))
+
+    boursefonciereforestiere::admin_reset()
+  }
+  
+  path
 }
 
 #' Définir le chemin du dossier des données
@@ -753,9 +820,12 @@ get_path <- function(){
 #' @return
 #' @export
 #'
-
-set_path <- function(path){
-  saveRDS(path,"path.rds")
+set_path <- function(path=NULL){
+  
+  if(is.null(path)){
+    path <- system.file("data", package = "boursefonciereforestiere")
+  }
+  # saveRDS(path,"path.rds")
 }
 
 #' Import des données depuis un dossier externe
@@ -884,7 +954,7 @@ admin_reset <- function(){
 r_debug <- function(){
   r <- list(user="a")
   r$dir <- path
-  saveRDS(path, "path.rds")
+  # saveRDS(path, "path.rds")
   
   r$par = readRDS(file.path(r$dir,"parcelles.rds")) %>% 
     select(parcelle,etiquette,surface,numero,section,nom_com)

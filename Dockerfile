@@ -39,5 +39,8 @@ ADD . /build_zone
 WORKDIR /build_zone
 COPY boursefonciereforestiere_0.0.0.9000.tar.gz /build_zone
 RUN R -e 'install.packages("boursefonciereforestiere_0.0.0.9000.tar.gz",repos=NULL)'
+RUN R -e 'dir.create("~/.boursefonciereforestiere_data")'
+RUN R -e 'file.copy(list.files(system.file("files",package = "boursefonciereforestiere"), full.name=TRUE), "~/.boursefonciereforestiere_data")'
+
 EXPOSE 3838
 
